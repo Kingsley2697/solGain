@@ -7,4 +7,4 @@
 - [x] Document API setup, local development, Supabase table setup, and Vercel deployment.
 - [x] Install and resolve project dependencies.
 - [x] Run TypeScript validation and resolve compile errors.
-- [ ] Verify home, token, portfolio, and watchlist routes in a browser with configured API keys.
+- [x] Verify home, token, portfolio, and watchlist routes in a browser with configured API keys.
