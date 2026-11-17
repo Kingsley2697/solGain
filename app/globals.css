@@ -428,3 +428,93 @@ a { color: inherit; text-decoration: none; }
   .connect-state { min-height: calc(100vh - 125px); padding: 20px; }
   .connect-state h1 { font-size: 21px; }
 }
+
+/* solGain's visual language: dark Solana-inspired terminal, with an original mark. */
+:root {
+  --background: #050806;
+  --foreground: #ecfff0;
+  --surface: #0a100c;
+  --surface-raised: #0e1611;
+  --border: #1c3023;
+  --muted: #78907f;
+  --accent: #14f195;
+  --accent-violet: #9945ff;
+  --heading: #c4ffd2;
+}
+
+body { background: var(--background); }
+.terminal-shell, .token-page, .portfolio-page, .watchlist-page {
+  background:
+    radial-gradient(ellipse at 84% -22%, rgba(20, 241, 149, .14), transparent 43%),
+    radial-gradient(ellipse at 12% -15%, rgba(153, 69, 255, .10), transparent 34%),
+    var(--background);
+}
+.topbar, .token-topbar, .portfolio-topbar, .watchlist-topbar {
+  border-color: #17271d;
+  background: rgba(5, 8, 6, .9);
+}
+.brand { gap: 11px; }
+.brand > span:last-child {
+  color: #f1fff4;
+  font-family: "Arial Rounded MT Bold", "Arial Black", var(--font-geist-sans), sans-serif;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: .04em;
+}
+.brand > span:last-child > span { color: #14f195; font-weight: 900; }
+.brand-mark {
+  width: 26px;
+  height: 20px;
+  display: block;
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  transform: none;
+  background: none;
+}
+.brand-mark::before, .brand-mark::after, .brand-mark i {
+  content: "";
+  position: absolute;
+  left: 2px;
+  width: 22px;
+  height: 4px;
+  display: block;
+  border-radius: 999px;
+  background: linear-gradient(100deg, #14f195 0%, #53e9be 34%, #9945ff 76%, #d861ff 100%);
+  box-shadow: 0 0 11px rgba(20, 241, 149, .24);
+  transform: skewX(-24deg);
+}
+.brand-mark::before { top: 1px; }
+.brand-mark i { top: 8px; }
+.brand-mark::after { top: 15px; }
+.primary-nav a.active::after, .tab-list button.selected::after { background: #14f195; }
+.primary-nav a.active { color: #e9ffef; }
+.wallet-button, .install-app-button {
+  border-color: #285c3b;
+  color: #d7ffe3;
+  background: linear-gradient(120deg, rgba(20, 241, 149, .13), rgba(153, 69, 255, .08));
+}
+.wallet-button:hover, .install-app-button:hover { border-color: #14f195; background: rgba(20, 241, 149, .14); }
+.eyebrow { color: #8ac69a; font-weight: 800; letter-spacing: 1.5px; }
+.eyebrow i { background: #14f195; box-shadow: 0 0 12px rgba(20, 241, 149, .7); }
+.market-heading h1, .portfolio-heading h1, .watchlist-heading h1, .connect-state h1, .offline-card h1 {
+  color: var(--heading);
+  font-family: "Arial Rounded MT Bold", "Arial Black", var(--font-geist-sans), sans-serif;
+  font-weight: 900;
+  letter-spacing: .015em;
+}
+.market-heading h1 { text-transform: uppercase; }
+.search-box, .filter-button, .token-table, .market-strip, .token-hero, .chart-panel, .holders-panel, .trade-panel, .safety-panel, .ai-panel, .portfolio-stats, .portfolio-assets, .watchlist-panel {
+  border-color: #1b3022;
+  background-color: rgba(9, 15, 11, .9);
+}
+.search-box:focus-within { border-color: #14f195; box-shadow: 0 0 0 2px rgba(20, 241, 149, .1); }
+.market-signal > span, .connect-icon, .watchlist-empty > span {
+  color: #14f195;
+  border-color: #24543a;
+  background: rgba(20, 241, 149, .08);
+}
+.filter-button i, .table-footer button, .watchlist-open, .ai-panel .panel-title strong svg { color: #56e5b5; }
+.connect-cta, .offline-card a { border-color: #14f195; color: #031109; background: #14f195; font-weight: 800; }
+.connect-cta:hover, .offline-card a:hover { background: #75ffc2; }
+.loading-mark { border-top-color: #14f195; }
