@@ -8,6 +8,7 @@ type InjectedWallet = {
   publicKey?: PublicKeyLike | null;
   connect: (options?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: PublicKeyLike }>;
   disconnect?: () => Promise<void>;
+  signMessage?: (message: Uint8Array) => Promise<Uint8Array>;
   signTransaction?: (transaction: VersionedTransaction) => Promise<VersionedTransaction>;
   on?: (event: "connect" | "disconnect" | "accountChanged", listener: (publicKey?: PublicKeyLike | null) => void) => void;
   off?: (event: "connect" | "disconnect" | "accountChanged", listener: (publicKey?: PublicKeyLike | null) => void) => void;
@@ -24,6 +25,7 @@ type WalletContextValue = {
   publicKey: string;
   connecting: boolean;
   signTransaction?: (transaction: VersionedTransaction) => Promise<VersionedTransaction>;
+  signMessage?: (message: Uint8Array) => Promise<Uint8Array>;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
 };
@@ -67,6 +69,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return wallet.signTransaction(transaction);
   }, []);
 
+  const signMessage = useCallback(async (message: Uint8Array) => {
+    const wallet = getInjectedWallet();
+    if (!wallet?.signMessage) throw new Error("This wallet does not support message signing.");
+    return wallet.signMessage(message);
+  }, []);
+
   useEffect(() => {
     const wallet = getInjectedWallet();
     if (!wallet) return;
@@ -87,9 +95,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     publicKey,
     connecting,
     signTransaction,
+    signMessage,
     connect,
     disconnect,
-  }), [connect, connecting, disconnect, publicKey, signTransaction]);
+  }), [connect, connecting, disconnect, publicKey, signMessage, signTransaction]);
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PublicKey } from "@solana/web3.js";
-import { isRateLimited } from "@/lib/api-security";
+import { isRateLimited, isSameOrigin } from "@/lib/api-security";
 
 const JUPITER_ORDER_URL = "https://api.jup.ag/swap/v2/order";
 const requiredParams = ["inputMint", "outputMint", "amount", "taker"];
 
 export async function GET(request: NextRequest) {
+  if (!isSameOrigin(request)) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
   if (isRateLimited(request.headers, "jupiter-order", 20, 60_000)) return NextResponse.json({ error: "Too many quote requests. Please wait a minute." }, { status: 429 });
   const apiKey = process.env.JUPITER_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "Add JUPITER_API_KEY to enable swaps." }, { status: 503 });
@@ -22,7 +23,13 @@ export async function GET(request: NextRequest) {
   if (!Number.isInteger(slippageBps) || slippageBps < 1 || slippageBps > 5_000) return NextResponse.json({ error: "Slippage must be between 0.01% and 50%." }, { status: 400 });
   const upstreamParams = new URLSearchParams({ inputMint, outputMint, amount, taker, slippageBps: String(slippageBps) });
 
-  const upstream = await fetch(`${JUPITER_ORDER_URL}?${upstreamParams}`, { headers: { "x-api-key": apiKey }, cache: "no-store" });
-  const payload = await upstream.json().catch(() => ({}));
-  return NextResponse.json(payload, { status: upstream.status });
+  try {
+    const upstream = await fetch(`${JUPITER_ORDER_URL}?${upstreamParams}`, {
+      headers: { "x-api-key": apiKey }, cache: "no-store", signal: AbortSignal.timeout(8_000),
+    });
+    const payload = await upstream.json().catch(() => ({}));
+    return NextResponse.json(payload, { status: upstream.status });
+  } catch {
+    return NextResponse.json({ error: "Swap quoting is temporarily unavailable." }, { status: 502 });
+  }
 }

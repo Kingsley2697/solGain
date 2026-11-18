@@ -15,8 +15,8 @@ export async function GET(request: Request, { params }: { params: { address: str
     const mint = new PublicKey(params.address);
     const [reportResponse, mintInfo] = await Promise.all([
       fetch(`https://api.rugcheck.xyz/v1/tokens/${mint.toBase58()}/report`, { next: { revalidate: 60 } }),
-      new Connection(process.env.NEXT_PUBLIC_HELIUS_API_KEY
-        ? `https://mainnet.helius-rpc.com/?api-key=${process.env.NEXT_PUBLIC_HELIUS_API_KEY}`
+      new Connection(process.env.HELIUS_API_KEY
+        ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
         : "https://api.mainnet-beta.solana.com", "confirmed").getParsedAccountInfo(mint),
     ]);
     if (!reportResponse.ok) throw new Error("RugCheck report unavailable");

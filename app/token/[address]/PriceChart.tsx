@@ -31,15 +31,12 @@ export default function PriceChart({ address, price }: { address: string; price:
     const intervalSeconds = range === "5m" ? 300 : range === "15m" ? 900 : range === "1h" ? 3600 : 14400;
     const load = async () => {
       setState("loading");
-      const apiKey = process.env.NEXT_PUBLIC_BIRDEYE_API_KEY;
-      if (!apiKey) {
-        if (active) { series.setData(previewPoints(address, price, intervalSeconds)); chart.timeScale().fitContent(); setState("preview"); }
-        return;
-      }
       try {
-        const now = Math.floor(Date.now() / 1000);
-        const params = new URLSearchParams({ address, type: range, time_from: String(now - intervalSeconds * 72), time_to: String(now) });
-        const response = await fetch(`https://public-api.birdeye.so/defi/ohlcv?${params}`, { headers: { "X-API-KEY": apiKey, "x-chain": "solana" } });
+        const response = await fetch(`/api/market/chart/${encodeURIComponent(address)}?range=${range}`, { cache: "no-store" });
+        if (response.status === 503) {
+          if (active) { series.setData(previewPoints(address, price, intervalSeconds)); chart.timeScale().fitContent(); setState("preview"); }
+          return;
+        }
         if (!response.ok) throw new Error("Chart request failed");
         const payload = await response.json();
         const points = (payload.data?.items ?? []).map((item: { unixTime: number; c: number }) => ({ time: item.unixTime as UTCTimestamp, value: Number(item.c) })).filter((item: { value: number }) => item.value > 0);

@@ -3,19 +3,20 @@
 import { useEffect, useState } from "react";
 import { Star } from "lucide-react";
 import { useSolanaWallet } from "@/components/wallet-provider";
-import { getWatchlist, toggleWatchlist } from "@/lib/watchlist";
+import { getLocalWatchlist, getWatchlist, toggleWatchlist } from "@/lib/watchlist";
 
 export function WatchlistButton({ address }: { address: string }) {
   const [saved, setSaved] = useState(false);
-  const { publicKey: owner } = useSolanaWallet();
+  const { publicKey: owner, signMessage } = useSolanaWallet();
   useEffect(() => {
     if (!owner) { setSaved(false); return; }
-    void getWatchlist(owner).then(items => setSaved(items.includes(address)));
-  }, [address, owner]);
+    setSaved(getLocalWatchlist(owner).includes(address));
+    void getWatchlist(owner, signMessage).then(items => setSaved(items.includes(address)));
+  }, [address, owner, signMessage]);
   const toggle = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     if (!owner) return;
-    const items = await toggleWatchlist(owner, address);
+    const items = await toggleWatchlist(owner, address, signMessage);
     setSaved(items.includes(address));
     window.dispatchEvent(new CustomEvent("solgain:watchlist", { detail: items }));
   };

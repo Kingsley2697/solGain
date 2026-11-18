@@ -16,13 +16,7 @@ type OverviewResponse = { data?: ApiToken & { liquidity?: number; mc?: number } 
 const colors = ["#86a9d8", "#e1a56f", "#9b8acb", "#76b7a5", "#c78091", "#a5a663"];
 
 export async function fetchBirdeyeTokens(): Promise<MarketToken[]> {
-  const apiKey = process.env.NEXT_PUBLIC_BIRDEYE_API_KEY;
-  if (!apiKey) return [];
-  const params = new URLSearchParams({ sort_by: "v24hUSD", sort_type: "desc", offset: "0", limit: "30" });
-  const response = await fetch(`https://public-api.birdeye.so/defi/tokenlist?${params}`, {
-    headers: { "X-API-KEY": apiKey, "x-chain": "solana" },
-    cache: "no-store",
-  });
+  const response = await fetch("/api/market/tokens", { cache: "no-store" });
   if (!response.ok) throw new Error(`Birdeye request failed (${response.status})`);
   const payload = (await response.json()) as ApiResponse;
   return (payload.data?.tokens ?? [])
@@ -44,12 +38,7 @@ export async function fetchBirdeyeTokens(): Promise<MarketToken[]> {
 }
 
 export async function fetchBirdeyeToken(address: string): Promise<MarketToken | null> {
-  const apiKey = process.env.NEXT_PUBLIC_BIRDEYE_API_KEY;
-  if (!apiKey) return null;
-  const response = await fetch(`https://public-api.birdeye.so/defi/token_overview?address=${encodeURIComponent(address)}`, {
-    headers: { "X-API-KEY": apiKey, "x-chain": "solana" },
-    cache: "no-store",
-  });
+  const response = await fetch(`/api/market/token/${encodeURIComponent(address)}`, { cache: "no-store" });
   if (!response.ok) throw new Error(`Birdeye request failed (${response.status})`);
   const payload = (await response.json()) as OverviewResponse;
   const token = payload.data;

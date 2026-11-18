@@ -54,9 +54,8 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [updated, setUpdated] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [mockMode, setMockMode] = useState(!process.env.NEXT_PUBLIC_BIRDEYE_API_KEY);
+  const [mockMode, setMockMode] = useState(false);
   const refresh = useCallback(async () => {
-    if (!process.env.NEXT_PUBLIC_BIRDEYE_API_KEY) { setTokens(mockTokens); setMockMode(true); setUpdated(new Date()); return; }
     setRefreshing(true);
     try {
       const live = await fetchBirdeyeTokens();
