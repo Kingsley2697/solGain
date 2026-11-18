@@ -70,6 +70,9 @@ a { color: inherit; text-decoration: none; }
 .install-app-button { height: 32px; display: inline-flex; align-items: center; gap: 6px; padding: 0 9px; border: 1px solid #51446e; border-radius: 6px; background: rgba(167,139,250,.1); color: #ddd2ff; font-size: 11px; cursor: pointer; white-space: nowrap; }
 .install-app-button:hover { border-color: #9278ca; background: rgba(167,139,250,.18); }
 .wallet-error { position: absolute; top: 43px; right: 0; z-index: 4; width: max-content; max-width: 240px; padding: 8px 10px; color: #ffc2c2; background: #251719; border: 1px solid #51282c; border-radius: 5px; font-size: 11px; }
+.wallet-picker { position: absolute; top: 43px; right: 0; z-index: 4; min-width: 156px; padding: 4px; border: 1px solid #39333f; border-radius: 6px; background: #17171a; box-shadow: 0 12px 30px rgba(0,0,0,.35); }
+.wallet-picker button { width: 100%; padding: 9px 10px; border: 0; border-radius: 4px; color: #e8ddff; background: transparent; text-align: left; font-size: 12px; cursor: pointer; }
+.wallet-picker button:hover, .wallet-picker button.selected { background: rgba(167,139,250,.14); color: #fff; }
 .offline-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; color: var(--foreground); background: radial-gradient(ellipse at 50% -25%, rgba(167,139,250,.16), transparent 60%), var(--background); }
 .offline-card { width: min(100%, 500px); padding: 42px; border: 1px solid #302b3a; border-radius: 16px; background: rgba(19,19,22,.94); box-shadow: 0 24px 80px rgba(0,0,0,.32); text-align: center; }
 .offline-mark { width: 42px; height: 42px; display: inline-grid; place-items: center; margin-bottom: 19px; border: 1px solid #a78bfa; border-radius: 12px; color: #d9caff; font-weight: 800; font-size: 19px; background: rgba(167,139,250,.1); }

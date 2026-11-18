@@ -29,14 +29,20 @@ function TokenRow({ token, index }: { token: MarketToken; index: number }) {
 }
 
 function WalletButton() {
-  const { publicKey: address, connect, disconnect, connecting } = useSolanaWallet();
+  const { publicKey: address, connect, disconnect, connecting, wallets, selectedWalletId, selectWallet } = useSolanaWallet();
   const [message, setMessage] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const toggleConnection = async () => {
     setMessage("");
     try { if (address) await disconnect(); else await connect(); }
     catch (error) { setMessage(error instanceof Error ? error.message : "Wallet connection was cancelled"); }
   };
-  return <div className="wallet-wrap"><button className={`wallet-button ${address ? "connected" : ""}`} onClick={toggleConnection} disabled={connecting}><Wallet size={15} /><span>{connecting ? "Connecting" : address ? `${address.slice(0, 4)}…${address.slice(-4)}` : "Connect wallet"}</span>{!address && <ChevronDown size={14} />}</button>{message && <span className="wallet-error" role="status">{message}</span>}</div>;
+  const chooseWallet = async (walletId: string) => {
+    setMessage(""); setPickerOpen(false); selectWallet(walletId);
+    try { await connect(walletId); }
+    catch (error) { setMessage(error instanceof Error ? error.message : "Wallet connection was cancelled"); }
+  };
+  return <div className="wallet-wrap"><button className={`wallet-button ${address ? "connected" : ""}`} onClick={() => { if (!address && wallets.length > 1) setPickerOpen(open => !open); else void toggleConnection(); }} disabled={connecting}><Wallet size={15} /><span>{connecting ? "Connecting" : address ? `${address.slice(0, 4)}…${address.slice(-4)}` : "Connect wallet"}</span>{!address && <ChevronDown size={14} />}</button>{pickerOpen && <div className="wallet-picker" role="menu" aria-label="Choose a Solana wallet">{wallets.map(wallet => <button key={wallet.id} role="menuitem" className={wallet.id === selectedWalletId ? "selected" : ""} onClick={() => void chooseWallet(wallet.id)}>{wallet.name}</button>)}</div>}{message && <span className="wallet-error" role="status">{message}</span>}</div>;
 }
 
 export default function Home() {

@@ -14,19 +14,27 @@ type InjectedWallet = {
   off?: (event: "connect" | "disconnect" | "accountChanged", listener: (publicKey?: PublicKeyLike | null) => void) => void;
 };
 
+export type WalletOption = { id: string; name: string };
+type DetectedWallet = WalletOption & { provider: InjectedWallet };
+
 declare global {
   interface Window {
     solana?: InjectedWallet;
     phantom?: { solana?: InjectedWallet };
+    solflare?: InjectedWallet;
+    backpack?: { solana?: InjectedWallet };
   }
 }
 
 type WalletContextValue = {
   publicKey: string;
   connecting: boolean;
+  wallets: WalletOption[];
+  selectedWalletId: string;
+  selectWallet: (walletId: string) => void;
   signTransaction?: (transaction: VersionedTransaction) => Promise<VersionedTransaction>;
   signMessage?: (message: Uint8Array) => Promise<Uint8Array>;
-  connect: () => Promise<void>;
+  connect: (walletId?: string) => Promise<void>;
   disconnect: () => Promise<void>;
 };
 
@@ -36,70 +44,95 @@ function walletAddress(publicKey?: PublicKeyLike | null) {
   return publicKey?.toBase58?.() ?? publicKey?.toString() ?? "";
 }
 
-function getInjectedWallet() {
-  if (typeof window === "undefined") return undefined;
-  return window.phantom?.solana ?? window.solana;
+function findWallets(): DetectedWallet[] {
+  if (typeof window === "undefined") return [];
+  const candidates: DetectedWallet[] = [
+    ...(window.phantom?.solana ? [{ id: "phantom", name: "Phantom", provider: window.phantom.solana }] : []),
+    ...(window.solflare ? [{ id: "solflare", name: "Solflare", provider: window.solflare }] : []),
+    ...(window.backpack?.solana ? [{ id: "backpack", name: "Backpack", provider: window.backpack.solana }] : []),
+    ...(window.solana ? [{ id: "browser-wallet", name: "Browser wallet", provider: window.solana }] : []),
+  ];
+  const seen = new Set<InjectedWallet>();
+  return candidates.filter(candidate => {
+    if (seen.has(candidate.provider)) return false;
+    seen.add(candidate.provider);
+    return true;
+  });
+}
+
+function providerFor(walletId: string) {
+  return findWallets().find(wallet => wallet.id === walletId)?.provider;
 }
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [publicKey, setPublicKey] = useState("");
   const [connecting, setConnecting] = useState(false);
+  const [detectedWallets, setDetectedWallets] = useState<DetectedWallet[]>([]);
+  const [selectedWalletId, setSelectedWalletId] = useState("");
 
-  const connect = useCallback(async () => {
-    const wallet = getInjectedWallet();
-    if (!wallet) throw new Error("Install a Phantom-compatible Solana wallet to connect.");
+  useEffect(() => {
+    const discover = () => {
+      const wallets = findWallets();
+      setDetectedWallets(wallets);
+      setSelectedWalletId(current => wallets.some(wallet => wallet.id === current) ? current : wallets[0]?.id ?? "");
+    };
+    discover();
+    window.addEventListener("load", discover);
+    const retry = window.setTimeout(discover, 750);
+    return () => { window.removeEventListener("load", discover); window.clearTimeout(retry); };
+  }, []);
+
+  const activeWallet = useMemo(() => detectedWallets.find(wallet => wallet.id === selectedWalletId)?.provider, [detectedWallets, selectedWalletId]);
+
+  const selectWallet = useCallback((walletId: string) => {
+    if (!providerFor(walletId)) throw new Error("That wallet is no longer available. Reopen the wallet picker.");
+    setPublicKey("");
+    setSelectedWalletId(walletId);
+  }, []);
+
+  const connect = useCallback(async (walletId?: string) => {
+    const id = walletId ?? selectedWalletId;
+    const wallet = providerFor(id) ?? activeWallet;
+    if (!wallet) throw new Error("Install Phantom, Solflare, or Backpack to connect a Solana wallet.");
     setConnecting(true);
     try {
       const account = await wallet.connect();
       setPublicKey(walletAddress(account.publicKey));
-    } finally {
-      setConnecting(false);
-    }
-  }, []);
+    } finally { setConnecting(false); }
+  }, [activeWallet, selectedWalletId]);
 
   const disconnect = useCallback(async () => {
-    const wallet = getInjectedWallet();
-    await wallet?.disconnect?.();
+    await activeWallet?.disconnect?.();
     setPublicKey("");
-  }, []);
+  }, [activeWallet]);
 
   const signTransaction = useCallback(async (transaction: VersionedTransaction) => {
-    const wallet = getInjectedWallet();
-    if (!wallet?.signTransaction) throw new Error("This wallet cannot sign versioned transactions.");
-    return wallet.signTransaction(transaction);
-  }, []);
+    if (!activeWallet?.signTransaction) throw new Error("This wallet cannot sign versioned transactions.");
+    return activeWallet.signTransaction(transaction);
+  }, [activeWallet]);
 
   const signMessage = useCallback(async (message: Uint8Array) => {
-    const wallet = getInjectedWallet();
-    if (!wallet?.signMessage) throw new Error("This wallet does not support message signing.");
-    return wallet.signMessage(message);
-  }, []);
+    if (!activeWallet?.signMessage) throw new Error("This wallet does not support message signing.");
+    return activeWallet.signMessage(message);
+  }, [activeWallet]);
 
   useEffect(() => {
-    const wallet = getInjectedWallet();
-    if (!wallet) return;
-    const setConnected = (key?: PublicKeyLike | null) => setPublicKey(walletAddress(key ?? wallet.publicKey));
+    if (!activeWallet) return;
+    const setConnected = (key?: PublicKeyLike | null) => setPublicKey(walletAddress(key ?? activeWallet.publicKey));
     const setDisconnected = () => setPublicKey("");
     setConnected();
-    wallet.on?.("connect", setConnected);
-    wallet.on?.("accountChanged", setConnected);
-    wallet.on?.("disconnect", setDisconnected);
+    activeWallet.on?.("connect", setConnected);
+    activeWallet.on?.("accountChanged", setConnected);
+    activeWallet.on?.("disconnect", setDisconnected);
     return () => {
-      wallet.off?.("connect", setConnected);
-      wallet.off?.("accountChanged", setConnected);
-      wallet.off?.("disconnect", setDisconnected);
+      activeWallet.off?.("connect", setConnected);
+      activeWallet.off?.("accountChanged", setConnected);
+      activeWallet.off?.("disconnect", setDisconnected);
     };
-  }, []);
+  }, [activeWallet]);
 
-  const value = useMemo<WalletContextValue>(() => ({
-    publicKey,
-    connecting,
-    signTransaction,
-    signMessage,
-    connect,
-    disconnect,
-  }), [connect, connecting, disconnect, publicKey, signMessage, signTransaction]);
-
+  const wallets = useMemo<WalletOption[]>(() => detectedWallets.map(({ id, name }) => ({ id, name })), [detectedWallets]);
+  const value = useMemo<WalletContextValue>(() => ({ publicKey, connecting, wallets, selectedWalletId, selectWallet, signTransaction, signMessage, connect, disconnect }), [connect, connecting, disconnect, publicKey, selectWallet, selectedWalletId, signMessage, signTransaction, wallets]);
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }
 

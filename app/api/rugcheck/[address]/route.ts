@@ -4,6 +4,7 @@ import { isRateLimited } from "@/lib/api-security";
 
 type RugCheckReport = {
   score_normalized?: number;
+  score_normalised?: number;
   risks?: { name?: string; level?: string; value?: string; description?: string }[];
   topHolders?: { address?: string; amount?: number; decimals?: number; pct?: number; uiAmount?: number; owner?: string }[];
   markets?: { lp?: { lpLockedPct?: number; lpBurnedPct?: number; lpLockedUSD?: number } }[];
@@ -14,7 +15,7 @@ export async function GET(request: Request, { params }: { params: { address: str
     if (isRateLimited(request.headers, "rugcheck", 30, 60_000)) return NextResponse.json({ error: "Too many safety scans. Please wait a minute." }, { status: 429 });
     const mint = new PublicKey(params.address);
     const [reportResponse, mintInfo] = await Promise.all([
-      fetch(`https://api.rugcheck.xyz/v1/tokens/${mint.toBase58()}/report`, { next: { revalidate: 60 } }),
+      fetch(`https://api.rugcheck.xyz/v1/tokens/${mint.toBase58()}/report`, { next: { revalidate: 60 }, signal: AbortSignal.timeout(8_000) }),
       new Connection(process.env.HELIUS_API_KEY
         ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
         : "https://api.mainnet-beta.solana.com", "confirmed").getParsedAccountInfo(mint),
@@ -32,7 +33,8 @@ export async function GET(request: Request, { params }: { params: { address: str
     const topTenPct = holders.reduce((sum, holder) => sum + holder.percentage, 0);
     const lockedPct = Math.max(0, ...((report.markets ?? []).map(market => Number(market.lp?.lpLockedPct) || Number(market.lp?.lpBurnedPct) || 0)));
     const riskPenalty = (report.risks ?? []).reduce((sum, risk) => sum + (risk.level?.toLowerCase() === "danger" ? 28 : risk.level?.toLowerCase() === "warn" ? 12 : 4), 0);
-    const score = typeof report.score_normalized === "number" ? Math.max(0, Math.min(100, Math.round(report.score_normalized))) : Math.max(0, 100 - riskPenalty);
+    const reportedScore = report.score_normalized ?? report.score_normalised;
+    const score = typeof reportedScore === "number" ? Math.max(0, Math.min(100, Math.round(reportedScore))) : Math.max(0, 100 - riskPenalty);
     return NextResponse.json({
       score,
       liquidityLocked: lockedPct >= 95,
