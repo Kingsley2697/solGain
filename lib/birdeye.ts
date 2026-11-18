@@ -1,4 +1,4 @@
-import type { MarketToken } from "@/lib/mock";
+import type { MarketToken } from "@/lib/market";
 
 type ApiToken = {
   address?: string;
@@ -6,19 +6,30 @@ type ApiToken = {
   symbol?: string;
   price?: number;
   priceChange1hPercent?: number;
+  priceChange24hPercent?: number;
+  v24hChangePercent?: number;
   v24hUSD?: number;
   mc?: number;
+  marketCap?: number;
   holder?: number;
+  liquidity?: number;
+  logoURI?: string;
 };
 
-type ApiResponse = { data?: { tokens?: ApiToken[] } };
-type OverviewResponse = { data?: ApiToken & { liquidity?: number; mc?: number } };
+type ApiResponse = { success?: boolean; data?: { tokens?: ApiToken[] } };
+type OverviewResponse = { success?: boolean; data?: ApiToken & { liquidity?: number; mc?: number } };
 const colors = ["#86a9d8", "#e1a56f", "#9b8acb", "#76b7a5", "#c78091", "#a5a663"];
+
+function numberOrUndefined(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
+}
 
 export async function fetchBirdeyeTokens(): Promise<MarketToken[]> {
   const response = await fetch("/api/market/tokens", { cache: "no-store" });
   if (!response.ok) throw new Error(`Birdeye request failed (${response.status})`);
   const payload = (await response.json()) as ApiResponse;
+  if (!payload.success) throw new Error("Birdeye rejected the market request.");
   return (payload.data?.tokens ?? [])
     .filter((token): token is ApiToken & { address: string; name: string; symbol: string } => Boolean(token.address && token.name && token.symbol))
     .map((token, index) => ({
@@ -26,14 +37,14 @@ export async function fetchBirdeyeTokens(): Promise<MarketToken[]> {
       name: token.name,
       symbol: token.symbol,
       price: Number(token.price) || 0,
-      change1h: Number(token.priceChange1hPercent) || 0,
+      change: Number(token.v24hChangePercent) || 0,
+      changeWindow: "24h",
       volume24h: Number(token.v24hUSD) || 0,
-      marketCap: Number(token.mc) || 0,
-      holders: Number(token.holder) || 0,
-      ageHours: index,
-      ageLabel: "Live",
+      marketCap: Number(token.mc ?? token.marketCap) || 0,
+      holders: numberOrUndefined(token.holder),
+      liquidity: numberOrUndefined(token.liquidity),
+      logoURI: token.logoURI,
       color: colors[index % colors.length],
-      sparkline: [0.2, 0.32, 0.27, 0.42, 0.37, 0.53, 0.46, 0.62, 0.58, 0.73, 0.67, 0.82, 0.76, 0.89, 0.85, 1],
     }));
 }
 
@@ -41,6 +52,7 @@ export async function fetchBirdeyeToken(address: string): Promise<MarketToken | 
   const response = await fetch(`/api/market/token/${encodeURIComponent(address)}`, { cache: "no-store" });
   if (!response.ok) throw new Error(`Birdeye request failed (${response.status})`);
   const payload = (await response.json()) as OverviewResponse;
+  if (!payload.success) throw new Error("Birdeye rejected the token request.");
   const token = payload.data;
   if (!token?.name || !token.symbol || !token.address) return null;
   return {
@@ -48,14 +60,13 @@ export async function fetchBirdeyeToken(address: string): Promise<MarketToken | 
     name: token.name,
     symbol: token.symbol,
     price: Number(token.price) || 0,
-    change1h: Number(token.priceChange1hPercent) || 0,
+    change: Number(token.priceChange1hPercent ?? token.v24hChangePercent ?? token.priceChange24hPercent) || 0,
+    changeWindow: token.priceChange1hPercent === undefined ? "24h" : "1h",
     volume24h: Number(token.v24hUSD) || 0,
-    marketCap: Number(token.mc) || 0,
-    holders: Number(token.holder) || 0,
-    liquidity: Number(token.liquidity) || 0,
-    ageHours: 0,
-    ageLabel: "Live",
+    marketCap: Number(token.mc ?? token.marketCap) || 0,
+    holders: numberOrUndefined(token.holder),
+    liquidity: numberOrUndefined(token.liquidity),
+    logoURI: token.logoURI,
     color: colors[0],
-    sparkline: [0.2, 0.32, 0.27, 0.42, 0.37, 0.53, 0.46, 0.62, 0.58, 0.73, 0.67, 0.82, 0.76, 0.89, 0.85, 1],
   };
 }
