@@ -42,9 +42,9 @@ export function createWalletNonce(address: string) {
   return { nonce, cookie: encode({ address, nonce, expiresAt }), expiresAt };
 }
 
-export function readWalletNonce(value: string | undefined) {
+export function readWalletNonce(value: string | undefined): (SignedPayload & { nonce: string }) | null {
   const payload = decode(value);
-  return payload?.nonce ? payload : null;
+  return payload?.nonce ? { ...payload, nonce: payload.nonce } : null;
 }
 
 export function createWalletSession(address: string) {

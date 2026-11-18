@@ -11,3 +11,4 @@ alter table public.wallet_watchlists enable row level security;
 
 -- Browser clients never access this table directly. Server routes verify a
 -- wallet signature and use the server-only Supabase secret key for access.
+grant select, insert, delete on table public.wallet_watchlists to service_role;
