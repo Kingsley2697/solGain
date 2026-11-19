@@ -6,8 +6,8 @@ type HolderCacheEntry = { value: number; expiresAt: number };
 const holderCache = new Map<string, HolderCacheEntry>();
 const holderRequests = new Map<string, Promise<number | null>>();
 const cacheTtlMs = 5 * 60_000;
-const maxAddresses = 30;
-const maxUncachedPerRequest = 30;
+const maxAddresses = 50;
+const maxUncachedPerRequest = 50;
 
 function holderCount(payload: unknown) {
   const data = (payload as { data?: Record<string, unknown> })?.data;

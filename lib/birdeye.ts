@@ -25,9 +25,11 @@ type ApiToken = {
 
 type ApiResponse = { success?: boolean; data?: { tokens?: ApiToken[] } };
 type OverviewResponse = { success?: boolean; data?: ApiToken & { liquidity?: number; mc?: number } };
+export type BirdeyeSearchToken = { address: string; name: string; symbol: string; logoURI?: string };
+type SearchResponse = { items?: BirdeyeSearchToken[]; error?: string };
 type CachedValue<T> = { value: T; savedAt: number };
 const colors = ["#86a9d8", "#e1a56f", "#9b8acb", "#76b7a5", "#c78091", "#a5a663"];
-const marketCacheKey = "solgain:market-cache:v1";
+const marketCacheKey = "solgain:market-cache:v2";
 const tokenCachePrefix = "solgain:token-cache:v1:";
 const browserCacheMs = 10 * 60_000;
 const tokenRequests = new Map<string, Promise<MarketToken | null>>();
@@ -87,8 +89,9 @@ function mapToken(token: ApiToken, index = 0): MarketToken | null {
 export function readCachedBirdeyeTokens() { return readCache<MarketToken[]>(marketCacheKey); }
 export function readCachedBirdeyeToken(address: string) { return readCache<MarketToken>(tokenCachePrefix + address); }
 
-export async function fetchBirdeyeTokens(): Promise<MarketToken[]> {
-  const response = await fetch("/api/market/tokens", { cache: "no-store" });
+export async function fetchBirdeyeTokens({ offset = 0, limit = 50 }: { offset?: number; limit?: number } = {}): Promise<MarketToken[]> {
+  const params = new URLSearchParams({ offset: String(offset), limit: String(limit) });
+  const response = await fetch(`/api/market/tokens?${params}`, { cache: "no-store" });
   if (!response.ok) throw new Error(`Birdeye request failed (${response.status})`);
   const payload = (await response.json()) as ApiResponse;
   if (!payload.success) throw new Error("Birdeye rejected the market request.");
@@ -96,7 +99,7 @@ export async function fetchBirdeyeTokens(): Promise<MarketToken[]> {
     const mapped = mapToken({ ...token, priceChange1hPercent: undefined }, index);
     return mapped ? [mapped] : [];
   });
-  writeCache(marketCacheKey, tokens);
+  if (offset === 0) writeCache(marketCacheKey, tokens);
   return tokens;
 }
 
@@ -117,4 +120,11 @@ export function prefetchBirdeyeToken(address: string) {
   const request = fetchBirdeyeToken(address).catch(() => null).finally(() => tokenRequests.delete(address));
   tokenRequests.set(address, request);
   return request;
+}
+
+export async function searchBirdeyeTokens(query: string): Promise<BirdeyeSearchToken[]> {
+  const response = await fetch(`/api/market/search?q=${encodeURIComponent(query)}`, { cache: "no-store" });
+  const payload = await response.json().catch(() => ({})) as SearchResponse;
+  if (!response.ok) throw new Error(payload.error ?? `Birdeye search failed (${response.status})`);
+  return payload.items ?? [];
 }

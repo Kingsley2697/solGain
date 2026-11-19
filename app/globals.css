@@ -100,6 +100,19 @@ a { color: inherit; text-decoration: none; }
 .market-heading h1 { font-size: 28px; font-weight: 600; margin: 12px 0 5px; letter-spacing: 0; }
 .market-heading p { color: #85848d; font-size: 12px; margin: 0; }
 .market-tools { display: flex; gap: 9px; align-items: center; }
+.market-search { position: relative; width: 265px; z-index: 4; }
+.market-search .search-box { width: 100%; }
+.search-results { position: absolute; top: calc(100% + 6px); left: 0; right: 0; overflow: hidden; border: 1px solid #28513a; border-radius: 6px; background: #0d1510; box-shadow: 0 16px 30px rgba(0,0,0,.38); }
+.search-result, .search-result-status { min-height: 49px; display: flex; align-items: center; gap: 9px; padding: 8px 10px; color: #b7c4ba; font-size: 9px; }
+.search-result { border-bottom: 1px solid #1e3326; }
+.search-result:last-child { border-bottom: 0; }
+.search-result:hover { background: #142319; }
+.search-result .token-mark { width: 25px; height: 25px; flex-basis: 25px; font-size: 8px; }
+.search-result > span:nth-child(2) { min-width: 0; display: grid; gap: 3px; }
+.search-result strong { overflow: hidden; color: #e7f7ea; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.search-result small { overflow: hidden; color: #74937d; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.search-result em { margin-left: auto; color: #62e49b; font-size: 8px; font-style: normal; white-space: nowrap; }
+.search-result-status { min-height: 40px; color: #84978a; }
 .search-box { height: 38px; width: 265px; padding: 0 10px; display: flex; align-items: center; gap: 9px; border: 1px solid #2a2a30; border-radius: 6px; color: #777780; background: rgba(19,19,22,.86); }
 .search-box:focus-within { border-color: #655486; box-shadow: 0 0 0 2px rgba(167,139,250,.08); }
 .search-box input { width: 100%; outline: 0; border: 0; color: #e5e3eb; background: transparent; font-size: 11px; }
@@ -191,6 +204,7 @@ a { color: inherit; text-decoration: none; }
   .market-heading { display: grid; align-items: start; gap: 20px; margin-bottom: 22px; }
   .market-heading h1 { font-size: 24px; margin-top: 10px; }
   .market-tools { width: 100%; }
+  .market-search { flex: 1; min-width: 0; width: auto; }
   .search-box { flex: 1; min-width: 0; width: auto; }
   .filter-button { flex: 0 0 auto; }
   .market-strip { grid-template-columns: 1fr 1fr; margin-bottom: 22px; padding: 8px 0; }

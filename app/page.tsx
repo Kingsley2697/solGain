@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDownRight, ArrowUpRight, ChevronDown, ExternalLink, Flame, LayoutGrid, Search, ShieldCheck, SlidersHorizontal, Sparkles, Wallet } from "lucide-react";
-import { fetchBirdeyeTokens, prefetchBirdeyeToken, readCachedBirdeyeTokens } from "@/lib/birdeye";
+import { fetchBirdeyeToken, fetchBirdeyeTokens, prefetchBirdeyeToken, readCachedBirdeyeTokens, searchBirdeyeTokens, type BirdeyeSearchToken } from "@/lib/birdeye";
 import type { MarketToken } from "@/lib/market";
 import { WatchlistButton } from "@/components/watchlist-button";
 import { InstallAppButton } from "@/components/install-app-button";
@@ -13,6 +13,8 @@ import { scoreMarketToken } from "@/lib/market-score";
 
 type MarketTab = "Trending" | "Top Gainers" | "Top Losers";
 const tabs: MarketTab[] = ["Trending", "Top Gainers", "Top Losers"];
+const pageSize = 50;
+const solanaAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const price = (value: number) => value >= 1 ? `$${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : value >= 0.01 ? `$${value.toFixed(4)}` : `$${value.toPrecision(3)}`;
 const compact = (value: number) => new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1, style: "currency", currency: "USD" }).format(value);
 
@@ -27,6 +29,11 @@ function TokenRow({ token, index }: { token: MarketToken; index: number }) {
     <div className="metric holders"><strong>{token.holders?.toLocaleString() ?? "Loading"}</strong><small>HOLDERS</small></div>
     <Link href={`/token/${token.address}`} className="market-detail">Live chart</Link><div className="row-actions"><WatchlistButton address={token.address} /><Link href={`/token/${token.address}`} className="row-open" aria-label={`Open ${token.name}`}><ExternalLink size={14} /></Link></div>
   </div>;
+}
+
+function SearchResults({ results, loading, error, onSelect }: { results: BirdeyeSearchToken[]; loading: boolean; error: string; onSelect: () => void }) {
+  if (!loading && !error && !results.length) return null;
+  return <div className="search-results" role="status" aria-live="polite">{loading ? <span className="search-result-status">Searching Birdeye…</span> : error ? <span className="search-result-status">{error}</span> : results.length ? results.map(token => <Link key={token.address} href={`/token/${token.address}`} className="search-result" onMouseEnter={() => void prefetchBirdeyeToken(token.address)} onFocus={() => void prefetchBirdeyeToken(token.address)} onClick={onSelect}><span className="token-mark" style={{ "--token-color": "#86a9d8" } as React.CSSProperties}>{token.symbol.slice(0, 2)}</span><span><strong>{token.name}</strong><small>{token.symbol} · {token.address.slice(0, 5)}…{token.address.slice(-5)}</small></span><em>Open token</em></Link>) : <span className="search-result-status">No Solana tokens found.</span>}</div>;
 }
 
 function WalletButton() {
@@ -60,6 +67,12 @@ export default function Home() {
   const [minimumScore, setMinimumScore] = useState("0");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [newPairsOnly, setNewPairsOnly] = useState(false);
+  const [searchResults, setSearchResults] = useState<BirdeyeSearchToken[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [nextOffset, setNextOffset] = useState(pageSize);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const refreshInFlight = useRef(false);
   const refreshHolders = useCallback(async (addresses: string[]) => {
     if (!addresses.length) return;
@@ -76,21 +89,44 @@ export default function Home() {
     refreshInFlight.current = true;
     setRefreshing(true);
     try {
-      const live = await fetchBirdeyeTokens();
+      const live = await fetchBirdeyeTokens({ limit: pageSize });
       if (!live.length) throw new Error("Birdeye returned no market tokens.");
-      setTokens(previous => live.map(token => ({ ...token, holders: token.holders ?? previous.find(current => current.address === token.address)?.holders })));
+      setTokens(previous => {
+        const refreshed = live.map(token => ({ ...token, holders: token.holders ?? previous.find(current => current.address === token.address)?.holders }));
+        const extras = previous.filter(token => !refreshed.some(current => current.address === token.address));
+        return [...refreshed, ...extras];
+      });
       void refreshHolders(live.map(token => token.address));
+      setNextOffset(offset => Math.max(offset, pageSize)); setHasMore(live.length === pageSize);
       setUpdated(new Date()); setError("");
     } catch { setError("Live market data is currently unavailable. Please try again shortly."); }
     finally { refreshInFlight.current = false; setRefreshing(false); }
   }, [refreshHolders]);
   useEffect(() => {
     const cached = readCachedBirdeyeTokens();
-    if (cached) { setTokens(cached.value); setUpdated(new Date(cached.savedAt)); setRefreshing(false); }
+    if (cached) { setTokens(cached.value); setUpdated(new Date(cached.savedAt)); setNextOffset(pageSize); setRefreshing(false); }
     void refresh();
     const timer = window.setInterval(() => void refresh(), 5_000);
     return () => window.clearInterval(timer);
   }, [refresh]);
+
+  const localMatch = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return Boolean(term) && tokens.some(token => `${token.name} ${token.symbol} ${token.address}`.toLowerCase().includes(term));
+  }, [query, tokens]);
+  useEffect(() => {
+    const term = query.trim();
+    if (!term || (term.length < 2 && !solanaAddress.test(term)) || localMatch) { setSearchResults([]); setSearchError(""); setSearching(false); return; }
+    let active = true;
+    const timer = window.setTimeout(() => {
+      setSearching(true); setSearchError("");
+      const lookup = solanaAddress.test(term)
+        ? fetchBirdeyeToken(term).then(token => token ? [{ address: token.address, name: token.name, symbol: token.symbol, logoURI: token.logoURI }] : [])
+        : searchBirdeyeTokens(term);
+      void lookup.then(results => { if (active) setSearchResults(results); }).catch(error => { if (active) { setSearchResults([]); setSearchError(error instanceof Error ? error.message : "Search is unavailable."); } }).finally(() => { if (active) setSearching(false); });
+    }, solanaAddress.test(term) ? 120 : 300);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [localMatch, query]);
 
   const visible = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -110,16 +146,27 @@ export default function Home() {
   }, [activeTab, minimumLiquidity, minimumScore, minimumVolume, newPairsOnly, query, tokens, verifiedOnly]);
   const totalVolume = tokens.reduce((sum, token) => sum + token.volume24h, 0);
   const largestMover = tokens.reduce<MarketToken | null>((best, token) => !best || token.change > best.change ? token : best, null);
-  const submitSearch = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); const term = query.trim(); if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(term)) router.push(`/token/${term}`); };
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const more = await fetchBirdeyeTokens({ offset: nextOffset, limit: pageSize });
+      setTokens(current => [...current, ...more.filter(token => !current.some(existing => existing.address === token.address))]);
+      void refreshHolders(more.map(token => token.address));
+      setNextOffset(offset => offset + pageSize); setHasMore(more.length === pageSize);
+    } catch { setError("Could not load more live tokens. Please try again shortly."); }
+    finally { setLoadingMore(false); }
+  };
+  const submitSearch = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); const term = query.trim(); if (solanaAddress.test(term)) router.push(`/token/${term}`); else if (searchResults.length === 1) router.push(`/token/${searchResults[0].address}`); };
 
   return <main className="terminal-shell">
     <header className="topbar"><Link href="/" className="brand" aria-label="solGain home"><span className="brand-mark"><i /></span><span>SOL<span>GAIN</span></span></Link><nav className="primary-nav" aria-label="Main navigation"><Link className="active" href="/">Markets</Link><Link href="/portfolio">Portfolio</Link><Link href="/watchlist">Watchlist</Link></nav><div className="topbar-actions"><div className="network-status"><i /> SOLANA MAINNET</div><InstallAppButton /><WalletButton /></div></header>
-    <section className="market-main"><div className="market-heading"><div><div className="eyebrow"><i /> SOLANA ECOSYSTEM <span>/</span> TOKEN SCREENER</div><h1>Market overview</h1><p>Live data from Birdeye.</p></div><div className="market-tools"><form className="search-box" onSubmit={submitSearch}><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search loaded tokens or paste a token address" aria-label="Search tokens by name or address" /></form><button className="filter-button" onClick={() => setFiltersOpen(open => !open)} aria-expanded={filtersOpen}><SlidersHorizontal size={14} /> Filters</button></div></div>
+    <section className="market-main"><div className="market-heading"><div><div className="eyebrow"><i /> SOLANA ECOSYSTEM <span>/</span> TOKEN SCREENER</div><h1>Market overview</h1><p>Live data from Birdeye.</p></div><div className="market-tools"><div className="market-search"><form className="search-box" onSubmit={submitSearch}><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search any token or paste a mint address" aria-label="Search tokens by name, ticker, or address" autoComplete="off" /></form><SearchResults results={searchResults} loading={searching} error={searchError} onSelect={() => { setSearchResults([]); setQuery(""); }} /></div><button className="filter-button" onClick={() => setFiltersOpen(open => !open)} aria-expanded={filtersOpen}><SlidersHorizontal size={14} /> Filters</button></div></div>
       {filtersOpen && <section className="discovery-filters" aria-label="Token discovery filters"><div><label>Min liquidity (USD)<input type="number" min="0" value={minimumLiquidity} onChange={event => setMinimumLiquidity(event.target.value)} /></label><label>Min 24h volume (USD)<input type="number" min="0" value={minimumVolume} onChange={event => setMinimumVolume(event.target.value)} /></label><label>Min transparent score<input type="number" min="0" max="100" value={minimumScore} onChange={event => setMinimumScore(event.target.value)} /></label></div><div className="discovery-toggles"><label><input type="checkbox" checked={verifiedOnly} onChange={event => setVerifiedOnly(event.target.checked)} /> Verified only</label><label><input type="checkbox" checked={newPairsOnly} onChange={event => setNewPairsOnly(event.target.checked)} /> New pairs (under 7 days)</label><button onClick={() => { setMinimumLiquidity("0"); setMinimumVolume("0"); setMinimumScore("0"); setVerifiedOnly(false); setNewPairsOnly(false); }}>Reset</button></div><p>Transparent score: liquidity (30), 24h activity (25), holder count (20), verification (15), and market cap (10). Authority and holder-concentration filters remain available on each token&apos;s live safety scan.</p></section>}
       <div className="market-strip"><div className="live-label"><i /> {error ? "MARKET UNAVAILABLE" : "LIVE MARKET"}</div><div className="market-stat"><small>TRACKED TOKENS</small><strong>{tokens.length}</strong><em>LIVE RESPONSE</em></div><div className="market-stat"><small>24H VOLUME</small><strong>{compact(totalVolume)}</strong><em>TRACKED TOKENS</em></div><div className="market-stat"><small>TOP 24H MOVER</small><strong>{largestMover?.symbol ?? "—"}</strong><em className={largestMover && largestMover.change >= 0 ? "positive" : "negative"}>{largestMover ? `${largestMover.change >= 0 ? "+" : ""}${largestMover.change.toFixed(1)}%` : "—"}</em></div><div className="market-signal"><span><Sparkles size={14} /></span><small>DATA MODE</small><strong>{error ? "Unavailable" : "Live feed"}</strong></div></div>
       <section className="tokens-section" aria-labelledby="tokens-heading"><div className="section-topline"><div className="tab-list" role="tablist" aria-label="Token rankings">{tabs.map(tab => <button key={tab} role="tab" aria-selected={activeTab === tab} className={activeTab === tab ? "selected" : ""} onClick={() => setActiveTab(tab)}>{tab === "Trending" && <Flame size={14} />}{tab}</button>)}</div><div className="table-status"><i className={refreshing ? "refreshing" : ""} />{error ? "Birdeye unavailable" : "Birdeye live"}<span>·</span>{updated ? `Updated ${updated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "Syncing market"}</div></div>
         <div className="token-table" role="table" aria-labelledby="tokens-heading"><div className="table-header" role="row"><span id="tokens-heading" role="columnheader">TOKEN <ChevronDown size={12} /></span><span role="columnheader">PRICE</span><span role="columnheader">24H CHANGE</span><span role="columnheader">24H VOLUME</span><span role="columnheader">MARKET CAP</span><span role="columnheader">HOLDERS</span><span role="columnheader">DETAILS</span><span role="columnheader" /></div>{visible.length ? visible.map((token, index) => <TokenRow key={token.address} token={token} index={index} />) : <div className="empty-state"><Search size={19} /><strong>{error ? "Live market data unavailable" : "No tokens found"}</strong><span>{error ? "No cached or simulated prices are shown. Check your Birdeye connection and retry." : "Try another loaded token or paste a token address."}</span></div>}</div>
-        <div className="table-footer"><span>Showing <strong>{visible.length}</strong> live tokens</span><span>{query && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(query.trim()) ? "Press Enter to open this token address" : "Token charts are available on each token page"}</span></div></section>
+        <div className="table-footer"><span>Showing <strong>{visible.length}</strong> live tokens</span>{!query && hasMore ? <button onClick={() => void loadMore()} disabled={loadingMore}>{loadingMore ? "Loading live tokens…" : "Load 50 more"}</button> : <span>{solanaAddress.test(query.trim()) ? "Press Enter to open this token address" : "Token charts are available on each token page"}</span>}</div></section>
       <footer className="page-footer"><span>Live market data provided by Birdeye</span><div><span><ShieldCheck size={13} /> Non-custodial</span><span><Sparkles size={13} /> Data may be delayed</span><Link href="/terms">Terms & risk</Link><Link href="/privacy">Privacy</Link></div></footer></section>
     <nav className="mobile-dock" aria-label="Mobile navigation"><Link href="/" className="dock-active"><LayoutGrid size={17} /><span>Markets</span></Link><Link href="/portfolio"><Wallet size={17} /><span>Portfolio</span></Link><Link href="/watchlist"><Sparkles size={17} /><span>Watchlist</span></Link></nav>
   </main>;
