@@ -1,4 +1,4 @@
-const CACHE_NAME = "solgain-shell-v1";
+const CACHE_NAME = "solgain-shell-v2";
 const APP_SHELL = ["/", "/offline", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
