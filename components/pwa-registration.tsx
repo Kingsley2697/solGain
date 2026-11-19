@@ -14,7 +14,7 @@ export function PwaRegistration() {
       return;
     }
 
-    void navigator.serviceWorker.register("/sw.js").catch(() => {
+    void navigator.serviceWorker.register("/sw.js").then(registration => registration.update()).catch(() => {
       // Installation remains available even if offline support cannot be registered.
     });
   }, []);

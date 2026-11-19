@@ -1,4 +1,4 @@
-const CACHE_NAME = "solgain-shell-v2";
+const CACHE_NAME = "solgain-shell-v3";
 const APP_SHELL = ["/", "/offline", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -27,13 +27,15 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (/\.(?:css|js|mjs|png|jpg|jpeg|svg|woff2?)$/i.test(url.pathname)) {
-    event.respondWith(caches.match(request).then((cached) => cached || fetch(request).then((response) => {
+    // Never let an old cached JavaScript or stylesheet hide a new release.
+    // The cache remains an offline fallback only.
+    event.respondWith(fetch(request).then((response) => {
       if (response.ok) {
         const copy = response.clone();
         void caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
       }
       return response;
-    })));
+    }).catch(() => caches.match(request)));
   }
 });
 

@@ -29,8 +29,8 @@ export type BirdeyeSearchToken = { address: string; name: string; symbol: string
 type SearchResponse = { items?: BirdeyeSearchToken[]; error?: string };
 type CachedValue<T> = { value: T; savedAt: number };
 const colors = ["#86a9d8", "#e1a56f", "#9b8acb", "#76b7a5", "#c78091", "#a5a663"];
-const marketCacheKey = "solgain:market-cache:v2";
-const tokenCachePrefix = "solgain:token-cache:v1:";
+const marketCacheKey = "solgain:market-cache:v3";
+const tokenCachePrefix = "solgain:token-cache:v2:";
 const browserCacheMs = 10 * 60_000;
 const tokenRequests = new Map<string, Promise<MarketToken | null>>();
 
