@@ -528,8 +528,8 @@ body { background: var(--background); }
 }
 .brand > span:last-child > span { color: #14f195; font-weight: 900; }
 .brand-mark {
-  width: 26px;
-  height: 20px;
+  width: 29px;
+  height: 25px;
   display: block;
   position: relative;
   border: 0;
@@ -537,21 +537,35 @@ body { background: var(--background); }
   transform: none;
   background: none;
 }
-.brand-mark::before, .brand-mark::after, .brand-mark i {
+.brand-mark::before {
   content: "";
   position: absolute;
-  left: 2px;
-  width: 22px;
-  height: 4px;
+  inset: 1px 2px;
   display: block;
-  border-radius: 999px;
-  background: linear-gradient(100deg, #14f195 0%, #53e9be 34%, #9945ff 76%, #d861ff 100%);
+  border-radius: 4px;
+  background:
+    linear-gradient(100deg, #14f195 0%, #53e9be 34%, #9945ff 76%, #d861ff 100%) 0 0 / 23px 4px no-repeat,
+    linear-gradient(100deg, #14f195 0%, #53e9be 34%, #9945ff 76%, #d861ff 100%) 0 8px / 23px 4px no-repeat,
+    linear-gradient(100deg, #14f195 0%, #53e9be 34%, #9945ff 76%, #d861ff 100%) 0 16px / 23px 4px no-repeat;
   box-shadow: 0 0 11px rgba(20, 241, 149, .24);
   transform: skewX(-24deg);
+  z-index: 1;
 }
-.brand-mark::before { top: 1px; }
-.brand-mark i { top: 8px; }
-.brand-mark::after { top: 15px; }
+.brand-mark::after, .brand-mark i::before {
+  position: absolute;
+  z-index: 2;
+  color: #f4fff7;
+  font-family: "Arial Rounded MT Bold", "Arial Black", sans-serif;
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 950;
+  line-height: 1;
+  letter-spacing: -.16em;
+  text-shadow: 0 1px 2px #03150c, 0 0 7px rgba(20, 241, 149, .52);
+}
+.brand-mark::after { content: "G"; top: 0; right: 2px; transform: rotate(-7deg); }
+.brand-mark i { position: absolute; inset: 0; display: block; width: auto; height: auto; background: none; transform: none; }
+.brand-mark i::before { content: "S"; left: 4px; top: 8px; transform: rotate(7deg); }
 .primary-nav a.active::after, .tab-list button.selected::after { background: #14f195; }
 .primary-nav a.active { color: #e9ffef; }
 .wallet-button, .install-app-button {
