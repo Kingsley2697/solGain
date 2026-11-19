@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "solGain — Solana Token Terminal",
-    short_name: "solGain",
+    name: "SolGain — Solana Token Terminal",
+    short_name: "SolGain",
     description: "A non-custodial Solana token screener with portfolio, watchlist, and swap tools.",
     start_url: "/",
     scope: "/",

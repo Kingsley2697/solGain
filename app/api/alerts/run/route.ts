@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     triggered += 1;
     try {
       const destination = decryptAlertDestination<AlertDestination>(alert.destination_ciphertext) ?? { pushSubscription: {} };
-      const title = "solGain market alert";
+      const title = "SolGain market alert";
       const body = `${alert.condition_type.replace(/_/g, " ")}: ${current.toLocaleString("en-US", { maximumFractionDigits: 8 })} (target ${Number(alert.target_value).toLocaleString()})`;
       const outcomes = await deliver(alert.channels, destination, title, body, `/token/${alert.token_address}`);
       if (outcomes.length) await supabase.from("wallet_alert_deliveries").insert(outcomes.map(outcome => ({ alert_id: alert.id, channel: outcome.channel, observed_value: current, status: outcome.status, detail: outcome.detail ?? null })));

@@ -41,7 +41,7 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("push", (event) => {
   const payload = event.data ? event.data.json() : {};
-  event.waitUntil(self.registration.showNotification(payload.title || "solGain alert", {
+  event.waitUntil(self.registration.showNotification(payload.title || "SolGain alert", {
     body: payload.body || "A market alert was triggered.",
     icon: "/icon-192.png",
     badge: "/icon-192.png",

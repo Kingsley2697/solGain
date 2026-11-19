@@ -33,7 +33,7 @@ function getMobileWallet(): MobileWallet | null {
   if (typeof window === "undefined" || !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) return null;
   if (!mobileWallet) mobileWallet = new SolanaMobileWalletAdapter({
     addressSelector: createDefaultAddressSelector(),
-    appIdentity: { name: "solGain", uri: window.location.origin, icon: "/icon-192.png" },
+    appIdentity: { name: "SolGain", uri: window.location.origin, icon: "/icon-192.png" },
     chain: solanaMainnet,
     authorizationResultCache: createDefaultAuthorizationResultCache(),
     onWalletNotFound: createDefaultWalletNotFoundHandler(),

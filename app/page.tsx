@@ -4,15 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDownRight, ArrowUpRight, ChevronDown, ExternalLink, Flame, LayoutGrid, Search, ShieldCheck, SlidersHorizontal, Sparkles, Wallet } from "lucide-react";
-import { fetchBirdeyeToken, fetchBirdeyeTokens, prefetchBirdeyeToken, readCachedBirdeyeTokens, searchBirdeyeTokens, type BirdeyeSearchToken } from "@/lib/birdeye";
+import { fetchBirdeyeDiscovery, fetchBirdeyeToken, fetchBirdeyeTokens, prefetchBirdeyeToken, readCachedBirdeyeTokens, searchBirdeyeTokens, type BirdeyeSearchToken } from "@/lib/birdeye";
 import type { MarketToken } from "@/lib/market";
 import { WatchlistButton } from "@/components/watchlist-button";
 import { InstallAppButton } from "@/components/install-app-button";
 import { useSolanaWallet } from "@/components/wallet-provider";
 import { scoreMarketToken } from "@/lib/market-score";
 
-type MarketTab = "Trending" | "Top Gainers" | "Top Losers";
-const tabs: MarketTab[] = ["Trending", "Top Gainers", "Top Losers"];
+type MarketTab = "Trending" | "Top Gainers" | "Top Losers" | "New Launches" | "Memecoins";
+const tabs: MarketTab[] = ["Trending", "Top Gainers", "Top Losers", "New Launches", "Memecoins"];
 const pageSize = 50;
 const solanaAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const price = (value: number) => value >= 1 ? `$${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : value >= 0.01 ? `$${value.toFixed(4)}` : `$${value.toPrecision(3)}`;
@@ -89,26 +89,30 @@ export default function Home() {
     refreshInFlight.current = true;
     setRefreshing(true);
     try {
-      const live = await fetchBirdeyeTokens({ limit: pageSize });
+      const specialized = activeTab === "New Launches" || activeTab === "Memecoins";
+      const discovery = specialized ? await fetchBirdeyeDiscovery(activeTab === "New Launches" ? "launches" : "memecoins") : null;
+      const live = discovery?.tokens ?? await fetchBirdeyeTokens({ limit: pageSize });
       if (!live.length) throw new Error("Birdeye returned no market tokens.");
-      setTokens(previous => {
+      setTokens(previous => specialized ? live.map(token => ({ ...token, holders: token.holders ?? previous.find(current => current.address === token.address)?.holders })) : (() => {
         const refreshed = live.map(token => ({ ...token, holders: token.holders ?? previous.find(current => current.address === token.address)?.holders }));
         const extras = previous.filter(token => !refreshed.some(current => current.address === token.address));
         return [...refreshed, ...extras];
-      });
+      })());
       void refreshHolders(live.map(token => token.address));
-      setNextOffset(offset => Math.max(offset, pageSize)); setHasMore(live.length === pageSize);
+      setNextOffset(offset => Math.max(offset, pageSize)); setHasMore(!specialized && live.length === pageSize);
       setUpdated(new Date()); setError("");
     } catch { setError("Live market data is currently unavailable. Please try again shortly."); }
     finally { refreshInFlight.current = false; setRefreshing(false); }
-  }, [refreshHolders]);
+  }, [activeTab, refreshHolders]);
   useEffect(() => {
-    const cached = readCachedBirdeyeTokens();
-    if (cached) { setTokens(cached.value); setUpdated(new Date(cached.savedAt)); setNextOffset(pageSize); setRefreshing(false); }
+    if (activeTab === "Trending") {
+      const cached = readCachedBirdeyeTokens();
+      if (cached) { setTokens(cached.value); setUpdated(new Date(cached.savedAt)); setNextOffset(pageSize); setRefreshing(false); }
+    }
     void refresh();
     const timer = window.setInterval(() => void refresh(), 5_000);
     return () => window.clearInterval(timer);
-  }, [refresh]);
+  }, [activeTab, refresh]);
 
   const localMatch = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -147,7 +151,7 @@ export default function Home() {
   const totalVolume = tokens.reduce((sum, token) => sum + token.volume24h, 0);
   const largestMover = tokens.reduce<MarketToken | null>((best, token) => !best || token.change > best.change ? token : best, null);
   const loadMore = async () => {
-    if (loadingMore || !hasMore) return;
+    if (activeTab === "New Launches" || activeTab === "Memecoins" || loadingMore || !hasMore) return;
     setLoadingMore(true);
     try {
       const more = await fetchBirdeyeTokens({ offset: nextOffset, limit: pageSize });

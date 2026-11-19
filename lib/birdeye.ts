@@ -23,9 +23,10 @@ type ApiToken = {
   logoURI?: string;
 };
 
-type ApiResponse = { success?: boolean; data?: { tokens?: ApiToken[] } };
+type ApiResponse = { success?: boolean; data?: { tokens?: ApiToken[] }; fallback?: boolean; source?: string };
 type OverviewResponse = { success?: boolean; data?: ApiToken & { liquidity?: number; mc?: number } };
 export type BirdeyeSearchToken = { address: string; name: string; symbol: string; logoURI?: string };
+export type BirdeyeDiscovery = { tokens: MarketToken[]; fallback: boolean; source: string };
 type SearchResponse = { items?: BirdeyeSearchToken[]; error?: string };
 type CachedValue<T> = { value: T; savedAt: number };
 const colors = ["#86a9d8", "#e1a56f", "#9b8acb", "#76b7a5", "#c78091", "#a5a663"];
@@ -127,4 +128,16 @@ export async function searchBirdeyeTokens(query: string): Promise<BirdeyeSearchT
   const payload = await response.json().catch(() => ({})) as SearchResponse;
   if (!response.ok) throw new Error(payload.error ?? `Birdeye search failed (${response.status})`);
   return payload.items ?? [];
+}
+
+export async function fetchBirdeyeDiscovery(feed: "launches" | "memecoins"): Promise<BirdeyeDiscovery> {
+  const response = await fetch(`/api/market/discovery?feed=${feed}`, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Birdeye discovery request failed (${response.status})`);
+  const payload = await response.json() as ApiResponse;
+  if (!payload.success) throw new Error("Birdeye rejected the discovery request.");
+  const tokens = (payload.data?.tokens ?? []).flatMap((token, index) => {
+    const mapped = mapToken(token, index);
+    return mapped ? [mapped] : [];
+  });
+  return { tokens, fallback: payload.fallback === true, source: payload.source ?? "Birdeye live feed" };
 }

@@ -17,11 +17,11 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
-  title: { default: "solGain | Solana Token Terminal", template: "%s | solGain" },
+  title: { default: "SolGain | Solana Token Terminal", template: "%s | SolGain" },
   description: "A non-custodial Solana token screener with portfolio, watchlist, and swap tools.",
-  openGraph: { title: "solGain", description: "Non-custodial Solana token terminal.", type: "website" },
-  applicationName: "solGain",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "solGain" },
+  openGraph: { title: "SolGain", description: "Non-custodial Solana token terminal.", type: "website" },
+  applicationName: "SolGain",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "SolGain" },
   formatDetection: { telephone: false },
   robots: { index: true, follow: true },
 };
