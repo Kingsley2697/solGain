@@ -339,6 +339,21 @@ a { color: inherit; text-decoration: none; }
 .strategy-custody svg { flex: 0 0 auto; margin-top: 1px; }
 .strategy-submit { width: calc(100% - 24px); height: 37px; margin: 0 12px; border: 1px solid #2fa76a; border-radius: 5px; color: #052112; background: #6de6a0; font-size: 10px; font-weight: 750; cursor: pointer; }
 .strategy-submit:disabled { opacity: .65; cursor: not-allowed; }
+.alerts-panel { padding-bottom: 12px; border: 1px solid #1b3022; border-radius: 7px; background: rgba(9, 15, 11, .9); overflow: hidden; }
+.alerts-panel .panel-title strong { display: flex; align-items: center; gap: 6px; }
+.alerts-panel .panel-title > span { color: #8edca8; font-size: 7px; letter-spacing: .5px; }
+.alert-form { display: grid; grid-template-columns: 1.3fr .7fr; gap: 7px; padding: 11px 12px 4px; }
+.alert-form label, .alert-destination { display: grid; gap: 5px; color: #9ba89e; font-size: 8px; }
+.alert-form select, .alert-form input, .alert-destination input { height: 31px; width: 100%; padding: 0 7px; border: 1px solid #2b4633; border-radius: 4px; outline: 0; color: #edf9ef; background: #101812; font-size: 9px; }
+.alert-channels { display: flex; flex-wrap: wrap; gap: 7px 11px; padding: 8px 12px; color: #aebdb1; font-size: 8px; }
+.alert-channels label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.alert-channels input { accent-color: #14f195; }
+.alert-destination { margin: 6px 12px; }
+.alert-submit { width: calc(100% - 24px); height: 34px; margin: 7px 12px 0; border: 1px solid #347c50; border-radius: 4px; color: #bfffd4; background: rgba(20, 241, 149, .12); font-size: 9px; font-weight: 700; cursor: pointer; }
+.alert-submit:disabled { opacity: .65; cursor: wait; }
+.alert-list { display: grid; gap: 0; margin: 10px 12px 0; border-top: 1px solid #213426; }
+.alert-list > div { min-height: 28px; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #a9b7ab; font-size: 8px; }
+.alert-list button { display: grid; place-items: center; border: 0; color: #e68787; background: transparent; cursor: pointer; }
 .safety-panel { padding-bottom: 11px; }
 .demo-chip { padding: 3px 5px; border: 1px solid #3b3546; color: #b9a2ff !important; border-radius: 3px; font-size: 7px !important; letter-spacing: .4px; }
 .safety-score { display: flex; align-items: center; gap: 11px; padding: 13px 14px; border-bottom: 1px solid #242329; }

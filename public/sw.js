@@ -37,3 +37,18 @@ self.addEventListener("fetch", (event) => {
     })));
   }
 });
+
+self.addEventListener("push", (event) => {
+  const payload = event.data ? event.data.json() : {};
+  event.waitUntil(self.registration.showNotification(payload.title || "solGain alert", {
+    body: payload.body || "A market alert was triggered.",
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    data: { url: payload.url || "/" },
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(clients.openWindow(event.notification.data?.url || "/"));
+});

@@ -31,6 +31,12 @@ Only the Supabase URL is browser-visible. `SUPABASE_SECRET_KEY`, `WALLET_AUTH_SE
 
 The token screen can create Jupiter Trigger target-price orders and recurring DCA strategies when `JUPITER_API_KEY` is configured. This is deliberately separate from the instant swap flow: Jupiter Trigger authenticates with a wallet-signed challenge, then deposits the selected budget into a Jupiter/Privy-managed vault until the strategy fills or is cancelled. The UI requires an explicit acknowledgement before any deposit transaction is signed. Jupiter validates final minimum-size, interval, and supported-mint rules when the strategy is created.
 
+## Alerts
+
+Run [the alert migration](supabase/migrations/20261119000000_create_wallet_alerts.sql) to persist alerts. Users can create price, liquidity, volume, and RugCheck-score alerts with browser push, Telegram, Discord, or email destinations. Destinations are AES-256-GCM encrypted using `ALERT_ENCRYPTION_KEY` before storage.
+
+Set VAPID keys to enable browser push, `TELEGRAM_BOT_TOKEN` for Telegram, and `RESEND_API_KEY` plus `ALERT_EMAIL_FROM` for email. Discord uses a user-provided webhook URL. Schedule `GET /api/alerts/run` at least once per minute with `Authorization: Bearer $ALERT_CRON_SECRET`; that protected worker evaluates alerts, sends messages, records delivery outcomes, and deduplicates threshold crossings. The worker uses current Birdeye REST data as the safe baseline. For a Birdeye WebSocket-capable plan, deploy a separate long-running broker that writes its streamed token updates into the same evaluation pipeline—the app does not expose provider API keys to browsers.
+
 When no Birdeye key is configured, market data and charts are clearly labelled as simulated preview data. A failed live chart is shown as unavailable rather than substituted with simulated data.
 
 ## Watchlist security
