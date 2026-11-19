@@ -1,11 +1,13 @@
 import { PublicKey } from "@solana/web3.js";
 import { NextRequest, NextResponse } from "next/server";
 import { isRateLimited, isSameOrigin } from "@/lib/api-security";
+import { birdeyeQuotaError, markBirdeyeQuota } from "@/lib/birdeye-server";
+import { dexSearch } from "@/lib/market-providers";
 
 type SearchToken = { address: string; name: string; symbol: string; logoURI?: string };
 type CacheEntry = { items: SearchToken[]; cachedAt: number };
 const cache = new Map<string, CacheEntry>();
-const freshCacheMs = 15_000;
+const freshCacheMs = 60_000;
 const staleCacheMs = 5 * 60_000;
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -19,11 +21,9 @@ function searchTokens(payload: unknown): SearchToken[] {
   const roots = array(record(data)?.items ?? record(data)?.tokens ?? data);
   const candidates = roots.flatMap(root => {
     const group = record(root);
-    if (!group) return [];
-    if (typeof group.type === "string" && group.type !== "token") return [];
-    return array(group.result ?? group.items ?? group.tokens ?? group.data).length
-      ? array(group.result ?? group.items ?? group.tokens ?? group.data)
-      : [group];
+    if (!group || (typeof group.type === "string" && group.type !== "token")) return [];
+    const nested = array(group.result ?? group.items ?? group.tokens ?? group.data);
+    return nested.length ? nested : [group];
   });
   const seen = new Set<string>();
   return candidates.flatMap(candidate => {
@@ -43,22 +43,31 @@ function json(items: SearchToken[], cacheStatus: "MISS" | "HIT" | "STALE") {
   return NextResponse.json({ items }, { headers: { "Cache-Control": "no-store, max-age=0", "X-Search-Cache": cacheStatus } });
 }
 
+async function birdeyeSearch(keyword: string, apiKey: string) {
+  const query = new URLSearchParams({ keyword, chain: "solana", target: "token", search_by: "combination", search_mode: "fuzzy", sort_by: "volume_24h_usd", sort_type: "desc", offset: "0", limit: "10" });
+  const response = await fetch(`https://public-api.birdeye.so/defi/v3/search?${query}`, { headers: { Accept: "application/json", "X-API-KEY": apiKey, "x-chain": "solana" }, cache: "no-store", signal: AbortSignal.timeout(8_000) });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(markBirdeyeQuota(payload, response.status) || `Birdeye ${response.status}`);
+  return searchTokens(payload);
+}
+
 export async function GET(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
-  if (isRateLimited(request.headers, "market-search", 30, 60_000)) return NextResponse.json({ error: "Too many search requests." }, { status: 429 });
-  const apiKey = process.env.BIRDEYE_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: "Market data is not configured." }, { status: 503 });
   const keyword = request.nextUrl.searchParams.get("q")?.trim() ?? "";
   if (keyword.length < 2 || keyword.length > 80) return NextResponse.json({ error: "Enter 2 to 80 characters." }, { status: 400 });
   const cacheKey = keyword.toLowerCase();
   const previous = cache.get(cacheKey);
   if (previous && Date.now() - previous.cachedAt < freshCacheMs) return json(previous.items, "HIT");
-  const query = new URLSearchParams({ keyword, chain: "solana", target: "token", search_by: "combination", search_mode: "fuzzy", sort_by: "volume_24h_usd", sort_type: "desc", offset: "0", limit: "10" });
+  if (isRateLimited(request.headers, "market-search", 30, 60_000)) return NextResponse.json({ error: "Too many search requests." }, { status: 429 });
+
+  const apiKey = process.env.BIRDEYE_API_KEY;
   try {
-    const response = await fetch(`https://public-api.birdeye.so/defi/v3/search?${query}`, { headers: { Accept: "application/json", "X-API-KEY": apiKey, "x-chain": "solana" }, cache: "no-store", signal: AbortSignal.timeout(8_000) });
-    const payload = await response.json();
-    if (!response.ok) throw new Error("Search provider request failed");
-    const items = searchTokens(payload);
+    const items = apiKey && !birdeyeQuotaError() ? await birdeyeSearch(keyword, apiKey) : null;
+    if (items) { cache.set(cacheKey, { items, cachedAt: Date.now() }); return json(items, "MISS"); }
+  } catch { /* Continue with DexScreener's public search endpoint. */ }
+
+  try {
+    const { items } = await dexSearch(keyword);
     cache.set(cacheKey, { items, cachedAt: Date.now() });
     return json(items, "MISS");
   } catch {

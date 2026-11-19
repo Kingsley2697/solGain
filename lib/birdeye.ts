@@ -44,6 +44,15 @@ async function fetchJson(url: string) {
   finally { window.clearTimeout(timeout); }
 }
 
+async function responsePayload(response: Response) {
+  const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+  if (!response.ok) {
+    const message = typeof payload.error === "string" ? payload.error : typeof payload.message === "string" ? payload.message : `Birdeye request failed (${response.status})`;
+    throw new Error(message);
+  }
+  return payload;
+}
+
 function numberOrUndefined(value: unknown) {
   const number = Number(value);
   return Number.isFinite(number) ? number : undefined;
@@ -102,8 +111,7 @@ export function readCachedBirdeyeToken(address: string) { return readCache<Marke
 export async function fetchBirdeyeTokens({ offset = 0, limit = 50 }: { offset?: number; limit?: number } = {}): Promise<MarketToken[]> {
   const params = new URLSearchParams({ offset: String(offset), limit: String(limit) });
   const response = await fetchJson(`/api/market/tokens?${params}`);
-  if (!response.ok) throw new Error(`Birdeye request failed (${response.status})`);
-  const payload = (await response.json()) as ApiResponse;
+  const payload = await responsePayload(response) as ApiResponse;
   if (!payload.success) throw new Error("Birdeye rejected the market request.");
   const tokens = (payload.data?.tokens ?? []).flatMap((token, index) => {
     const mapped = mapToken({ ...token, priceChange1hPercent: undefined }, index);
@@ -115,8 +123,7 @@ export async function fetchBirdeyeTokens({ offset = 0, limit = 50 }: { offset?: 
 
 export async function fetchBirdeyeToken(address: string): Promise<MarketToken | null> {
   const response = await fetchJson(`/api/market/token/${encodeURIComponent(address)}`);
-  if (!response.ok) throw new Error(`Birdeye request failed (${response.status})`);
-  const payload = (await response.json()) as OverviewResponse;
+  const payload = await responsePayload(response) as OverviewResponse;
   if (!payload.success) throw new Error("Birdeye rejected the token request.");
   const token = payload.data;
   const mapped = token ? mapToken(token) : null;
@@ -134,15 +141,13 @@ export function prefetchBirdeyeToken(address: string) {
 
 export async function searchBirdeyeTokens(query: string): Promise<BirdeyeSearchToken[]> {
   const response = await fetchJson(`/api/market/search?q=${encodeURIComponent(query)}`);
-  const payload = await response.json().catch(() => ({})) as SearchResponse;
-  if (!response.ok) throw new Error(payload.error ?? `Birdeye search failed (${response.status})`);
+  const payload = await responsePayload(response) as SearchResponse;
   return payload.items ?? [];
 }
 
 export async function fetchBirdeyeDiscovery(feed: "launches" | "memecoins"): Promise<BirdeyeDiscovery> {
   const response = await fetchJson(`/api/market/discovery?feed=${feed}`);
-  if (!response.ok) throw new Error(`Birdeye discovery request failed (${response.status})`);
-  const payload = await response.json() as ApiResponse;
+  const payload = await responsePayload(response) as ApiResponse;
   if (!payload.success) throw new Error("Birdeye rejected the discovery request.");
   const tokens = (payload.data?.tokens ?? []).flatMap((token, index) => {
     const mapped = mapToken(token, index);

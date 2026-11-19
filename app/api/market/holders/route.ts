@@ -1,6 +1,7 @@
 import { PublicKey } from "@solana/web3.js";
 import { NextRequest, NextResponse } from "next/server";
 import { isRateLimited, isSameOrigin } from "@/lib/api-security";
+import { birdeyeQuotaError, markBirdeyeQuota } from "@/lib/birdeye-server";
 
 type HolderCacheEntry = { value: number; expiresAt: number };
 const holderCache = new Map<string, HolderCacheEntry>();
@@ -30,7 +31,8 @@ async function fetchHolderCount(address: string, apiKey: string) {
       });
       const payload = await response.json().catch(() => ({}));
       const value = holderCount(payload);
-      if (!response.ok || value === null) return null;
+      if (!response.ok) { markBirdeyeQuota(payload); return null; }
+      if (value === null) return null;
       holderCache.set(address, { value, expiresAt: Date.now() + cacheTtlMs });
       return value;
     } finally { holderRequests.delete(address); }
@@ -44,6 +46,8 @@ export async function GET(request: NextRequest) {
   if (isRateLimited(request.headers, "market-holders", 12, 60_000)) return NextResponse.json({ error: "Too many holder requests." }, { status: 429 });
   const apiKey = process.env.BIRDEYE_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "Market data is not configured." }, { status: 503 });
+  const quotaError = birdeyeQuotaError();
+  if (quotaError) return NextResponse.json({ holders: {}, pending: 0, error: quotaError.error }, { status: 429, headers: { "Retry-After": String(quotaError.seconds) } });
   const raw = request.nextUrl.searchParams.get("addresses")?.split(",") ?? [];
   const addresses = Array.from(new Set(raw)).slice(0, maxAddresses).filter(address => { try { new PublicKey(address); return true; } catch { return false; } });
   const now = Date.now();
