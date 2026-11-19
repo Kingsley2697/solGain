@@ -117,7 +117,9 @@ export default function Home() {
     const refreshWhenVisible = () => { if (document.visibilityState === "visible") void refresh(); };
     refreshWhenVisible();
     document.addEventListener("visibilitychange", refreshWhenVisible);
-    const timer = window.setInterval(refreshWhenVisible, 10_000);
+    // Price discovery feels live at a five-second visible-tab cadence. The
+    // in-flight guard and server cache coalesce overlapping visitors safely.
+    const timer = window.setInterval(refreshWhenVisible, 5_000);
     return () => { document.removeEventListener("visibilitychange", refreshWhenVisible); window.clearInterval(timer); };
   }, [activeTab, refresh]);
 

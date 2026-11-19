@@ -3,7 +3,7 @@ import { isRateLimited, isSameOrigin } from "@/lib/api-security";
 
 type CachedList = { payload: unknown; cachedAt: number };
 const cached = new Map<string, CachedList>();
-const freshCacheMs = 5_000;
+const freshCacheMs = 3_000;
 const staleCacheMs = 60_000;
 
 function json(payload: unknown, status = 200, cache = "MISS") {

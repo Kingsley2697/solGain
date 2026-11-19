@@ -4,7 +4,9 @@ import { isRateLimited, isSameOrigin } from "@/lib/api-security";
 type Feed = "launches" | "memecoins";
 type CacheEntry = { payload: { success: true; data: { tokens: Record<string, unknown>[] }; fallback: boolean; source: string }; cachedAt: number };
 const cache = new Map<Feed, CacheEntry>();
-const freshCacheMs = 15_000;
+// The discovery tabs poll quickly in the visible browser. A short shared
+// cache keeps simultaneous visitors fast without making launch data stale.
+const freshCacheMs = 4_000;
 const staleCacheMs = 5 * 60_000;
 const stableSymbols = new Set(["SOL", "WSOL", "USDC", "USDT", "USDS", "USDH", "PYUSD", "EURC"]);
 
