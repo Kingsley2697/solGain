@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isRateLimited, isSameOrigin } from "@/lib/api-security";
 import { birdeyeQuotaError, markBirdeyeQuota } from "@/lib/birdeye-server";
-import { geckoTrending } from "@/lib/market-providers";
+import { dexToken, geckoTrending } from "@/lib/market-providers";
 
 type Feed = "launches" | "memecoins";
 type Token = Record<string, unknown>;
@@ -10,7 +10,10 @@ type CacheEntry = { payload: Payload; cachedAt: number };
 const cache = new Map<Feed, CacheEntry>();
 const freshCacheMs = 60_000;
 const staleCacheMs = 10 * 60_000;
+const launchOverviewCacheMs = 5 * 60_000;
+const launchLookupConcurrency = 6;
 const stableSymbols = new Set(["SOL", "WSOL", "USDC", "USDT", "USDS", "USDH", "PYUSD", "EURC"]);
+const launchOverviewCache = new Map<string, { token: Token | null; expiresAt: number }>();
 
 function object(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -58,6 +61,43 @@ function filter(feed: Feed, tokens: Token[]) {
   return feed === "launches" ? tokens : tokens.filter(token => !stableSymbols.has(String(token.symbol ?? "").toUpperCase()));
 }
 
+function livePrice(token: Token) {
+  return Number.isFinite(Number(token.price)) && Number(token.price) > 0;
+}
+
+async function enrichLaunch(listing: Token): Promise<Token | null> {
+  if (livePrice(listing)) return listing;
+  const address = String(listing.address ?? "");
+  const cached = launchOverviewCache.get(address);
+  if (cached && cached.expiresAt > Date.now()) return cached.token ? { ...listing, ...cached.token, creationTime: listing.creationTime ?? cached.token.creationTime } : null;
+  try {
+    // The new-listing endpoint is an identity feed and commonly omits market
+    // fields. DexScreener fills those fields without spending Birdeye units.
+    const overview = (await dexToken(address)).data as Token;
+    const token = livePrice(overview) ? overview : null;
+    launchOverviewCache.set(address, { token, expiresAt: Date.now() + launchOverviewCacheMs });
+    return token ? { ...listing, ...token, creationTime: listing.creationTime ?? token.creationTime } : null;
+  } catch {
+    launchOverviewCache.set(address, { token: null, expiresAt: Date.now() + 60_000 });
+    return null;
+  }
+}
+
+async function hydrateLaunches(listings: Token[]) {
+  const candidates = listings.slice(0, 50);
+  const hydrated: Token[] = [];
+  let cursor = 0;
+  async function worker() {
+    while (cursor < candidates.length && hydrated.length < 20) {
+      const listing = candidates[cursor++];
+      const token = await enrichLaunch(listing);
+      if (token) hydrated.push(token);
+    }
+  }
+  await Promise.all(Array.from({ length: launchLookupConcurrency }, () => worker()));
+  return hydrated.slice(0, 20);
+}
+
 async function birdeye(url: string, apiKey: string) {
   const response = await fetch(url, { headers: { Accept: "application/json", "X-API-KEY": apiKey, "x-chain": "solana" }, cache: "no-store", signal: AbortSignal.timeout(8_000) });
   const payload = await response.json().catch(() => null);
@@ -67,9 +107,10 @@ async function birdeye(url: string, apiKey: string) {
 
 async function primary(feed: Feed, apiKey: string) {
   const url = feed === "launches"
-    ? "https://public-api.birdeye.so/defi/v2/tokens/new_listing?limit=20&meme_platform_enabled=true"
+    ? "https://public-api.birdeye.so/defi/v2/tokens/new_listing?limit=50&meme_platform_enabled=true"
     : "https://public-api.birdeye.so/defi/v3/token/list?sort_by=volume_24h_usd&sort_type=desc&limit=50";
-  return filter(feed, normalize(payloadItems(await birdeye(url, apiKey))));
+  const tokens = filter(feed, normalize(payloadItems(await birdeye(url, apiKey))));
+  return feed === "launches" ? hydrateLaunches(tokens) : tokens;
 }
 
 function json(payload: Payload, cacheStatus: "MISS" | "HIT" | "STALE") {
