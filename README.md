@@ -33,9 +33,9 @@ The token screen can create Jupiter Trigger target-price orders and recurring DC
 
 ## Alerts
 
-Run [the alert migration](supabase/migrations/20261119000000_create_wallet_alerts.sql) to persist alerts. Users can create price, liquidity, volume, and RugCheck-score alerts with browser push, Telegram, Discord, or email destinations. Destinations are AES-256-GCM encrypted using `ALERT_ENCRYPTION_KEY` before storage.
+Run [the alert migration](supabase/migrations/20261119000000_create_wallet_alerts.sql) to persist alerts. Users can create price, liquidity, volume, and RugCheck-score alerts delivered only as browser push notifications. Push subscriptions are AES-256-GCM encrypted using `ALERT_ENCRYPTION_KEY` before storage.
 
-Set VAPID keys to enable browser push, `TELEGRAM_BOT_TOKEN` for Telegram, and `RESEND_API_KEY` plus `ALERT_EMAIL_FROM` for email. Discord uses a user-provided webhook URL. Schedule `GET /api/alerts/run` at least once per minute with `Authorization: Bearer $ALERT_CRON_SECRET`; that protected worker evaluates alerts, sends messages, records delivery outcomes, and deduplicates threshold crossings. The worker uses current Birdeye REST data as the safe baseline. For a Birdeye WebSocket-capable plan, deploy a separate long-running broker that writes its streamed token updates into the same evaluation pipeline—the app does not expose provider API keys to browsers.
+Set VAPID subject/public/private keys plus `NEXT_PUBLIC_VAPID_PUBLIC_KEY` for browser push. Schedule `GET /api/alerts/run` at least once per minute with `Authorization: Bearer $ALERT_CRON_SECRET`; that protected worker evaluates alerts, sends messages, records delivery outcomes, and deduplicates threshold crossings. The worker uses current Birdeye REST data as the safe baseline. For a Birdeye WebSocket-capable plan, deploy a separate long-running broker that writes its streamed token updates into the same evaluation pipeline—the app does not expose provider API keys to browsers.
 
 When no Birdeye key is configured, market data and charts are clearly labelled as simulated preview data. A failed live chart is shown as unavailable rather than substituted with simulated data.
 

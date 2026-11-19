@@ -21,11 +21,7 @@ function authorize(request: NextRequest, owner: string) {
 }
 
 function validDestination(channels: AlertChannels, destination: AlertDestination) {
-  if (channels.push && !destination.pushSubscription?.endpoint) return false;
-  if (channels.telegram && (!destination.telegramChatId || destination.telegramChatId.length > 100)) return false;
-  if (channels.discord && (!destination.discordWebhook || !/^https:\/\/discord(?:app)?\.com\/api\/webhooks\//.test(destination.discordWebhook))) return false;
-  if (channels.email && (!destination.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destination.email))) return false;
-  return Object.values(channels).some(Boolean);
+  return channels.push === true && Boolean(destination.pushSubscription?.endpoint);
 }
 
 export async function GET(request: NextRequest, { params }: { params: { owner: string } }) {
@@ -45,7 +41,7 @@ export async function PUT(request: NextRequest, { params }: { params: { owner: s
   try { new PublicKey(body.tokenAddress); } catch { return NextResponse.json({ error: "Invalid token address." }, { status: 400 }); }
   const channels = body.channels as AlertChannels;
   const destination = body.destination as AlertDestination;
-  if (!validDestination(channels, destination)) return NextResponse.json({ error: "Add at least one complete delivery destination." }, { status: 400 });
+  if (!validDestination(channels, destination)) return NextResponse.json({ error: "A valid browser-push subscription is required." }, { status: 400 });
   try {
     const { data, error } = await supabase.from("wallet_alerts").insert({ wallet_address: params.owner, token_address: body.tokenAddress, condition_type: body.condition, target_value: Number(body.target), channels, destination_ciphertext: encryptAlertDestination(destination) }).select("id,wallet_address,token_address,condition_type,target_value,channels,active,last_observed_value,last_triggered_at,created_at").single();
     return error ? NextResponse.json({ error: error.message }, { status: 502 }) : NextResponse.json({ alert: data });
