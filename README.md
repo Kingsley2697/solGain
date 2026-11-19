@@ -27,6 +27,10 @@ NEXT_PUBLIC_SITE_URL=
 
 Only the Supabase URL is browser-visible. `SUPABASE_SECRET_KEY`, `WALLET_AUTH_SECRET`, Birdeye, Helius, and Jupiter keys stay server-only behind same-origin, rate-limited API routes. Never place a server secret in any `NEXT_PUBLIC_` value. Generate `WALLET_AUTH_SECRET` with `openssl rand -base64 48`. Copy `.env.example` to `.env.local` and populate the values for a new environment.
 
+## Jupiter target orders and DCA
+
+The token screen can create Jupiter Trigger target-price orders and recurring DCA strategies when `JUPITER_API_KEY` is configured. This is deliberately separate from the instant swap flow: Jupiter Trigger authenticates with a wallet-signed challenge, then deposits the selected budget into a Jupiter/Privy-managed vault until the strategy fills or is cancelled. The UI requires an explicit acknowledgement before any deposit transaction is signed. Jupiter validates final minimum-size, interval, and supported-mint rules when the strategy is created.
+
 When no Birdeye key is configured, market data and charts are clearly labelled as simulated preview data. A failed live chart is shown as unavailable rather than substituted with simulated data.
 
 ## Watchlist security

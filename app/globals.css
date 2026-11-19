@@ -73,6 +73,18 @@ a { color: inherit; text-decoration: none; }
 .wallet-picker { position: absolute; top: 43px; right: 0; z-index: 4; min-width: 156px; padding: 4px; border: 1px solid #39333f; border-radius: 6px; background: #17171a; box-shadow: 0 12px 30px rgba(0,0,0,.35); }
 .wallet-picker button { width: 100%; padding: 9px 10px; border: 0; border-radius: 4px; color: #e8ddff; background: transparent; text-align: left; font-size: 12px; cursor: pointer; }
 .wallet-picker button:hover, .wallet-picker button.selected { background: rgba(167,139,250,.14); color: #fff; }
+.trade-review, .trade-warnings { display: grid; gap: 6px; margin: 10px 12px; padding: 10px; border: 1px solid #34303b; border-radius: 5px; background: rgba(255,255,255,.025); font-size: 10px; color: #aaa7b1; }
+.trade-review strong, .trade-warnings strong { color: #e7e4ed; font-size: 10px; }
+.trade-review span { display: flex; justify-content: space-between; gap: 10px; }
+.trade-review b { color: #d8d5df; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.trade-review small { color: #ffb2b2; overflow-wrap: anywhere; }
+.trade-review:has(+ .trade-review-live) { display: none; }
+.trade-review-live { border-color: #365f46; background: rgba(20, 241, 149, .055); }
+.trade-review-live > strong { color: #a9f6c4; }
+.trade-warnings { border-color: #64422f; background: rgba(184, 105, 43, .09); color: #e6c1a5; }
+.trade-warnings span { line-height: 1.35; }
+.trade-acknowledgement { display: flex; align-items: flex-start; gap: 7px; margin: 10px 12px; color: #bbb8c1; font-size: 9px; line-height: 1.35; cursor: pointer; }
+.trade-acknowledgement input { accent-color: #32cf70; margin-top: 1px; }
 .offline-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; color: var(--foreground); background: radial-gradient(ellipse at 50% -25%, rgba(167,139,250,.16), transparent 60%), var(--background); }
 .offline-card { width: min(100%, 500px); padding: 42px; border: 1px solid #302b3a; border-radius: 16px; background: rgba(19,19,22,.94); box-shadow: 0 24px 80px rgba(0,0,0,.32); text-align: center; }
 .offline-mark { width: 42px; height: 42px; display: inline-grid; place-items: center; margin-bottom: 19px; border: 1px solid #a78bfa; border-radius: 12px; color: #d9caff; font-weight: 800; font-size: 19px; background: rgba(167,139,250,.1); }
@@ -95,6 +107,15 @@ a { color: inherit; text-decoration: none; }
 .search-box kbd { display: flex; align-items: center; gap: 2px; white-space: nowrap; font-size: 9px; color: #6f6e77; border: 1px solid #303036; padding: 3px 4px; border-radius: 3px; }
 .filter-button { height: 38px; border: 1px solid #2a2a30; padding: 0 11px; display: flex; align-items: center; gap: 8px; background: #131316; color: #b4b2bc; border-radius: 6px; font-size: 11px; cursor: pointer; }
 .filter-button i { font-style: normal; font-size: 9px; padding: 2px 5px; color: #b9a2ff; background: rgba(167,139,250,.13); border-radius: 3px; }
+.discovery-filters { display: grid; gap: 12px; margin: -11px 0 25px; padding: 14px; border: 1px solid #1b3022; border-radius: 7px; background: rgba(9, 15, 11, .9); }
+.discovery-filters > div:first-child { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.discovery-filters label { display: grid; gap: 6px; color: #9ba89e; font-size: 9px; }
+.discovery-filters input[type="number"] { height: 33px; min-width: 0; padding: 0 9px; border: 1px solid #2b4633; border-radius: 4px; outline: 0; color: #edf9ef; background: #101812; font-size: 10px; }
+.discovery-toggles { display: flex; align-items: center; gap: 17px; }
+.discovery-toggles label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.discovery-toggles input { accent-color: #14f195; }
+.discovery-toggles button { margin-left: auto; border: 0; color: #78dca0; background: transparent; font-size: 9px; cursor: pointer; }
+.discovery-filters p { margin: 0; color: #718378; font-size: 8px; line-height: 1.5; }
 .market-strip { display: grid; grid-template-columns: 1.1fr 1fr 1.15fr .95fr 1.25fr; align-items: center; border: 1px solid #26262b; border-radius: 7px; background: linear-gradient(105deg, rgba(22,21,26,.98), rgba(18,18,21,.98)); min-height: 83px; margin-bottom: 34px; }
 .live-label { height: 45px; display: flex; align-items: center; gap: 8px; padding: 0 18px; font-size: 9px; font-weight: 700; letter-spacing: .7px; color: #c8c6ce; }
 .live-label span { width: 1px; height: 29px; margin-left: auto; background: #2a292e; }
@@ -257,6 +278,14 @@ a { color: inherit; text-decoration: none; }
 .holder-row strong { font-size: 9px; font-weight: 500; }
 .holder-row > span:last-child { color: #aaa8b1; }
 .token-sidebar { position: sticky; top: 16px; display: grid; gap: 12px; }
+.trade-mode-picker { overflow: hidden; border: 1px solid #1b3022; border-radius: 7px; background: rgba(9, 15, 11, .9); }
+.trade-mode-picker .panel-title > span { color: #8edca8; font-size: 7px; letter-spacing: .5px; }
+.trade-mode-picker > div:last-child { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; padding: 10px; }
+.trade-mode-picker button { min-height: 67px; display: grid; align-content: start; gap: 5px; padding: 9px; border: 1px solid #293b2e; border-radius: 5px; color: #9aaba0; background: #101812; text-align: left; cursor: pointer; }
+.trade-mode-picker button:hover { border-color: #39774f; }
+.trade-mode-picker button.selected { border-color: #14f195; color: #d9ffe5; background: rgba(20, 241, 149, .09); }
+.trade-mode-picker button strong { font-size: 9px; font-weight: 700; }
+.trade-mode-picker button small { color: #788d7d; font-size: 7px; line-height: 1.35; }
 .trade-panel { padding-bottom: 13px; }
 .trade-panel > .panel-title { min-height: 47px; }
 .route-status { display: flex; align-items: center; gap: 5px; }
@@ -294,6 +323,22 @@ a { color: inherit; text-decoration: none; }
 .swap-button:disabled { opacity: .7; cursor: wait; }
 .trade-message { margin: 9px 13px 0; color: #ffaaaa; font-size: 8px; line-height: 1.5; }
 .trade-success { margin: 9px 13px 0; display: flex; align-items: center; gap: 5px; color: #80e5a1; font-size: 8px; }
+.strategy-panel { padding-bottom: 13px; border: 1px solid #1b3022; border-radius: 7px; background: rgba(9, 15, 11, .9); overflow: hidden; }
+.strategy-panel .panel-title strong { display: flex; align-items: center; gap: 6px; }
+.strategy-panel .panel-title > span { color: #8edca8; font-size: 7px; letter-spacing: .5px; }
+.strategy-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 12px 12px 9px; padding: 3px; border: 1px solid #263a2c; border-radius: 5px; background: #0e1510; }
+.strategy-tabs button { height: 28px; border: 0; border-radius: 3px; color: #8a988d; background: transparent; font-size: 9px; cursor: pointer; }
+.strategy-tabs button.selected { color: #bff9cf; background: rgba(20, 241, 149, .12); }
+.strategy-tabs.compact { margin-top: 0; }
+.strategy-field { display: grid; gap: 6px; margin: 10px 12px; color: #9ba89e; font-size: 8px; }
+.strategy-field input { height: 34px; width: 100%; padding: 0 9px; border: 1px solid #2b4633; border-radius: 4px; outline: 0; color: #edf9ef; background: #101812; font-size: 11px; }
+.strategy-field input:focus { border-color: #14f195; }
+.strategy-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 0 12px; }
+.strategy-fields .strategy-field { min-width: 0; margin: 10px 0; }
+.strategy-custody { display: flex; align-items: flex-start; gap: 7px; margin: 11px 12px 0; padding: 8px; border: 1px solid #5c4b2d; border-radius: 4px; color: #e4c786; background: rgba(137, 104, 31, .11); font-size: 8px; line-height: 1.4; }
+.strategy-custody svg { flex: 0 0 auto; margin-top: 1px; }
+.strategy-submit { width: calc(100% - 24px); height: 37px; margin: 0 12px; border: 1px solid #2fa76a; border-radius: 5px; color: #052112; background: #6de6a0; font-size: 10px; font-weight: 750; cursor: pointer; }
+.strategy-submit:disabled { opacity: .65; cursor: not-allowed; }
 .safety-panel { padding-bottom: 11px; }
 .demo-chip { padding: 3px 5px; border: 1px solid #3b3546; color: #b9a2ff !important; border-radius: 3px; font-size: 7px !important; letter-spacing: .4px; }
 .safety-score { display: flex; align-items: center; gap: 11px; padding: 13px 14px; border-bottom: 1px solid #242329; }

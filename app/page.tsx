@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowDownRight, ArrowUpRight, ChevronDown, ExternalLink, Flame, LayoutGrid, Search, ShieldCheck, Sparkles, Wallet } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ChevronDown, ExternalLink, Flame, LayoutGrid, Search, ShieldCheck, SlidersHorizontal, Sparkles, Wallet } from "lucide-react";
 import { fetchBirdeyeTokens } from "@/lib/birdeye";
 import type { MarketToken } from "@/lib/market";
 import { WatchlistButton } from "@/components/watchlist-button";
 import { InstallAppButton } from "@/components/install-app-button";
 import { useSolanaWallet } from "@/components/wallet-provider";
+import { scoreMarketToken } from "@/lib/market-score";
 
 type MarketTab = "Trending" | "Top Gainers" | "Top Losers";
 const tabs: MarketTab[] = ["Trending", "Top Gainers", "Top Losers"];
@@ -53,6 +54,12 @@ export default function Home() {
   const [updated, setUpdated] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(true);
   const [error, setError] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [minimumLiquidity, setMinimumLiquidity] = useState("0");
+  const [minimumVolume, setMinimumVolume] = useState("0");
+  const [minimumScore, setMinimumScore] = useState("0");
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [newPairsOnly, setNewPairsOnly] = useState(false);
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -66,18 +73,28 @@ export default function Home() {
 
   const visible = useMemo(() => {
     const term = query.trim().toLowerCase();
-    const filtered = tokens.filter(token => !term || `${token.name} ${token.symbol} ${token.address}`.toLowerCase().includes(term));
+    const filtered = tokens.filter(token => {
+      const score = scoreMarketToken(token);
+      const isNew = token.createdAt !== undefined && token.createdAt <= Date.now() && Date.now() - token.createdAt < 7 * 24 * 60 * 60 * 1000;
+      return (!term || `${token.name} ${token.symbol} ${token.address}`.toLowerCase().includes(term))
+        && (token.liquidity ?? 0) >= Number(minimumLiquidity || 0)
+        && token.volume24h >= Number(minimumVolume || 0)
+        && score.total >= Number(minimumScore || 0)
+        && (!verifiedOnly || token.verified === true)
+        && (!newPairsOnly || isNew);
+    });
     if (activeTab === "Top Gainers") return [...filtered].sort((a, b) => b.change - a.change);
     if (activeTab === "Top Losers") return [...filtered].sort((a, b) => a.change - b.change);
     return [...filtered].sort((a, b) => b.volume24h - a.volume24h);
-  }, [activeTab, query, tokens]);
+  }, [activeTab, minimumLiquidity, minimumScore, minimumVolume, newPairsOnly, query, tokens, verifiedOnly]);
   const totalVolume = tokens.reduce((sum, token) => sum + token.volume24h, 0);
   const largestMover = tokens.reduce<MarketToken | null>((best, token) => !best || token.change > best.change ? token : best, null);
   const submitSearch = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); const term = query.trim(); if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(term)) router.push(`/token/${term}`); };
 
   return <main className="terminal-shell">
     <header className="topbar"><Link href="/" className="brand" aria-label="solGain home"><span className="brand-mark"><i /></span><span>SOL<span>GAIN</span></span></Link><nav className="primary-nav" aria-label="Main navigation"><Link className="active" href="/">Markets</Link><Link href="/portfolio">Portfolio</Link><Link href="/watchlist">Watchlist</Link></nav><div className="topbar-actions"><div className="network-status"><i /> SOLANA MAINNET</div><InstallAppButton /><WalletButton /></div></header>
-    <section className="market-main"><div className="market-heading"><div><div className="eyebrow"><i /> SOLANA ECOSYSTEM <span>/</span> TOKEN SCREENER</div><h1>Market overview</h1><p>Live data from Birdeye.</p></div><div className="market-tools"><form className="search-box" onSubmit={submitSearch}><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search loaded tokens or paste a token address" aria-label="Search tokens by name or address" /></form></div></div>
+    <section className="market-main"><div className="market-heading"><div><div className="eyebrow"><i /> SOLANA ECOSYSTEM <span>/</span> TOKEN SCREENER</div><h1>Market overview</h1><p>Live data from Birdeye.</p></div><div className="market-tools"><form className="search-box" onSubmit={submitSearch}><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search loaded tokens or paste a token address" aria-label="Search tokens by name or address" /></form><button className="filter-button" onClick={() => setFiltersOpen(open => !open)} aria-expanded={filtersOpen}><SlidersHorizontal size={14} /> Filters</button></div></div>
+      {filtersOpen && <section className="discovery-filters" aria-label="Token discovery filters"><div><label>Min liquidity (USD)<input type="number" min="0" value={minimumLiquidity} onChange={event => setMinimumLiquidity(event.target.value)} /></label><label>Min 24h volume (USD)<input type="number" min="0" value={minimumVolume} onChange={event => setMinimumVolume(event.target.value)} /></label><label>Min transparent score<input type="number" min="0" max="100" value={minimumScore} onChange={event => setMinimumScore(event.target.value)} /></label></div><div className="discovery-toggles"><label><input type="checkbox" checked={verifiedOnly} onChange={event => setVerifiedOnly(event.target.checked)} /> Verified only</label><label><input type="checkbox" checked={newPairsOnly} onChange={event => setNewPairsOnly(event.target.checked)} /> New pairs (under 7 days)</label><button onClick={() => { setMinimumLiquidity("0"); setMinimumVolume("0"); setMinimumScore("0"); setVerifiedOnly(false); setNewPairsOnly(false); }}>Reset</button></div><p>Transparent score: liquidity (30), 24h activity (25), holder count (20), verification (15), and market cap (10). Authority and holder-concentration filters remain available on each token&apos;s live safety scan.</p></section>}
       <div className="market-strip"><div className="live-label"><i /> {error ? "MARKET UNAVAILABLE" : "LIVE MARKET"}</div><div className="market-stat"><small>TRACKED TOKENS</small><strong>{tokens.length}</strong><em>LIVE RESPONSE</em></div><div className="market-stat"><small>24H VOLUME</small><strong>{compact(totalVolume)}</strong><em>TRACKED TOKENS</em></div><div className="market-stat"><small>TOP 24H MOVER</small><strong>{largestMover?.symbol ?? "—"}</strong><em className={largestMover && largestMover.change >= 0 ? "positive" : "negative"}>{largestMover ? `${largestMover.change >= 0 ? "+" : ""}${largestMover.change.toFixed(1)}%` : "—"}</em></div><div className="market-signal"><span><Sparkles size={14} /></span><small>DATA MODE</small><strong>{error ? "Unavailable" : "Live feed"}</strong></div></div>
       <section className="tokens-section" aria-labelledby="tokens-heading"><div className="section-topline"><div className="tab-list" role="tablist" aria-label="Token rankings">{tabs.map(tab => <button key={tab} role="tab" aria-selected={activeTab === tab} className={activeTab === tab ? "selected" : ""} onClick={() => setActiveTab(tab)}>{tab === "Trending" && <Flame size={14} />}{tab}</button>)}</div><div className="table-status"><i className={refreshing ? "refreshing" : ""} />{error ? "Birdeye unavailable" : "Birdeye live"}<span>·</span>{updated ? `Updated ${updated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "Syncing market"}</div></div>
         <div className="token-table" role="table" aria-labelledby="tokens-heading"><div className="table-header" role="row"><span id="tokens-heading" role="columnheader">TOKEN <ChevronDown size={12} /></span><span role="columnheader">PRICE</span><span role="columnheader">24H CHANGE</span><span role="columnheader">24H VOLUME</span><span role="columnheader">MARKET CAP</span><span role="columnheader">HOLDERS</span><span role="columnheader">CHART</span><span role="columnheader" /></div>{visible.length ? visible.map((token, index) => <TokenRow key={token.address} token={token} index={index} />) : <div className="empty-state"><Search size={19} /><strong>{error ? "Live market data unavailable" : "No tokens found"}</strong><span>{error ? "No simulated prices are shown. Check your Birdeye connection and retry." : "Try another loaded token or paste a token address."}</span></div>}</div>

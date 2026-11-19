@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       headers: { "x-api-key": apiKey }, cache: "no-store", signal: AbortSignal.timeout(8_000),
     });
     const payload = await upstream.json().catch(() => ({}));
-    return NextResponse.json(payload, { status: upstream.status });
+    return NextResponse.json(payload, { status: upstream.status, headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch {
     return NextResponse.json({ error: "Swap quoting is temporarily unavailable." }, { status: 502 });
   }

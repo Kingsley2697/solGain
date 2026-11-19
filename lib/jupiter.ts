@@ -10,8 +10,16 @@ export type JupiterQuote = {
   requestId: string;
   transaction: string;
   priceImpactPct?: string;
+  router?: string;
+  mode?: string;
+  feeBps?: number;
+  feeMint?: string;
+  feeAmount?: string;
+  platformFee?: { amount?: string; feeBps?: number; feeMint?: string } | null;
   errorMessage?: string;
 };
+
+export type SwapSimulation = { ok: boolean; error: string | null; unitsConsumed: number | null; logs: string[] };
 
 async function requestJson(url: string, options?: RequestInit) {
   const response = await fetch(url, options);
@@ -25,6 +33,10 @@ export async function getJupiterQuote(inputMint: string, outputMint: string, amo
   const payload = await requestJson(`/api/jupiter/order?${params}`);
   if (!payload.transaction || !payload.requestId) throw new Error(typeof payload.errorMessage === "string" ? payload.errorMessage : "Jupiter could not build this swap.");
   return payload as unknown as JupiterQuote;
+}
+
+export async function simulateJupiterSwap(quote: JupiterQuote): Promise<SwapSimulation> {
+  return requestJson("/api/jupiter/simulate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transaction: quote.transaction }) }) as Promise<SwapSimulation>;
 }
 
 function bytesToBase64(bytes: Uint8Array) {

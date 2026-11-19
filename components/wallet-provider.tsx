@@ -1,143 +1,123 @@
 "use client";
 
+import { getWallets } from "@wallet-standard/app";
+import { StandardConnect, StandardDisconnect, StandardEvents, type StandardEventsFeature } from "@wallet-standard/features";
+import { SolanaSignMessage, SolanaSignTransaction, type SolanaSignMessageFeature, type SolanaSignTransactionFeature } from "@solana/wallet-standard-features";
+import type { Wallet, WalletAccount } from "@wallet-standard/base";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { VersionedTransaction } from "@solana/web3.js";
+import { VersionedTransaction } from "@solana/web3.js";
+import { SolanaMobileWalletAdapter, createDefaultAddressSelector, createDefaultAuthorizationResultCache, createDefaultWalletNotFoundHandler } from "@solana-mobile/wallet-adapter-mobile";
 
-type PublicKeyLike = { toBase58?: () => string; toString: () => string };
-type InjectedWallet = {
-  publicKey?: PublicKeyLike | null;
-  connect: (options?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: PublicKeyLike }>;
-  disconnect?: () => Promise<void>;
-  signMessage?: (message: Uint8Array) => Promise<Uint8Array>;
-  signTransaction?: (transaction: VersionedTransaction) => Promise<VersionedTransaction>;
-  on?: (event: "connect" | "disconnect" | "accountChanged", listener: (publicKey?: PublicKeyLike | null) => void) => void;
-  off?: (event: "connect" | "disconnect" | "accountChanged", listener: (publicKey?: PublicKeyLike | null) => void) => void;
-};
+type MobileWallet = Pick<SolanaMobileWalletAdapter, "connect" | "disconnect" | "signMessage" | "signTransaction" | "publicKey">;
+type WalletEntry = { id: string; name: string; icon?: string; standard?: Wallet; mobile?: MobileWallet };
+export type WalletOption = Pick<WalletEntry, "id" | "name" | "icon">;
 
-export type WalletOption = { id: string; name: string };
-type DetectedWallet = WalletOption & { provider: InjectedWallet };
-
-declare global {
-  interface Window {
-    solana?: InjectedWallet;
-    phantom?: { solana?: InjectedWallet };
-    solflare?: InjectedWallet;
-    backpack?: { solana?: InjectedWallet };
-  }
-}
-
-type WalletContextValue = {
-  publicKey: string;
-  connecting: boolean;
-  wallets: WalletOption[];
-  selectedWalletId: string;
-  selectWallet: (walletId: string) => void;
-  signTransaction?: (transaction: VersionedTransaction) => Promise<VersionedTransaction>;
-  signMessage?: (message: Uint8Array) => Promise<Uint8Array>;
-  connect: (walletId?: string) => Promise<void>;
-  disconnect: () => Promise<void>;
-};
-
+type WalletContextValue = { publicKey: string; connecting: boolean; wallets: WalletOption[]; selectedWalletId: string; selectWallet: (walletId: string) => void; signTransaction?: (transaction: VersionedTransaction) => Promise<VersionedTransaction>; signMessage?: (message: Uint8Array) => Promise<Uint8Array>; connect: (walletId?: string) => Promise<void>; disconnect: () => Promise<void> };
 const WalletContext = createContext<WalletContextValue | null>(null);
+const solanaMainnet = "solana:mainnet";
+const mobileAddress = (publicKey: MobileWallet["publicKey"]) => publicKey?.toBase58() ?? "";
+let mobileWallet: MobileWallet | null = null;
 
-function walletAddress(publicKey?: PublicKeyLike | null) {
-  return publicKey?.toBase58?.() ?? publicKey?.toString() ?? "";
-}
-
-function findWallets(): DetectedWallet[] {
-  if (typeof window === "undefined") return [];
-  const candidates: DetectedWallet[] = [
-    ...(window.phantom?.solana ? [{ id: "phantom", name: "Phantom", provider: window.phantom.solana }] : []),
-    ...(window.solflare ? [{ id: "solflare", name: "Solflare", provider: window.solflare }] : []),
-    ...(window.backpack?.solana ? [{ id: "backpack", name: "Backpack", provider: window.backpack.solana }] : []),
-    ...(window.solana ? [{ id: "browser-wallet", name: "Browser wallet", provider: window.solana }] : []),
-  ];
-  const seen = new Set<InjectedWallet>();
-  return candidates.filter(candidate => {
-    if (seen.has(candidate.provider)) return false;
-    seen.add(candidate.provider);
-    return true;
+function getMobileWallet(): MobileWallet | null {
+  if (typeof window === "undefined" || !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) return null;
+  if (!mobileWallet) mobileWallet = new SolanaMobileWalletAdapter({
+    addressSelector: createDefaultAddressSelector(),
+    appIdentity: { name: "solGain", uri: window.location.origin, icon: "/icon-192.png" },
+    chain: solanaMainnet,
+    authorizationResultCache: createDefaultAuthorizationResultCache(),
+    onWalletNotFound: createDefaultWalletNotFoundHandler(),
   });
+  return mobileWallet;
 }
 
-function providerFor(walletId: string) {
-  return findWallets().find(wallet => wallet.id === walletId)?.provider;
+function discoverWallets(): WalletEntry[] {
+  if (typeof window === "undefined") return [];
+  const entries: WalletEntry[] = getWallets().get().filter(wallet => wallet.chains.some(chain => String(chain).startsWith("solana:"))).map((wallet, index) => ({ id: `standard:${wallet.name}:${index}`, name: wallet.name, icon: wallet.icon, standard: wallet }));
+  const mobile = getMobileWallet();
+  // Browser wallets are discovered solely through Wallet Standard. The mobile
+  // adapter is a separate deep-link/session bridge for mobile browsers.
+  return [...entries, ...(mobile ? [{ id: "mobile-wallet", name: "Mobile Wallet", mobile }] : [])];
 }
+
+function feature<T>(wallet: Wallet, name: string) { return wallet.features[name as `${string}:${string}`] as T | undefined; }
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const [publicKey, setPublicKey] = useState("");
-  const [connecting, setConnecting] = useState(false);
-  const [detectedWallets, setDetectedWallets] = useState<DetectedWallet[]>([]);
+  const [entries, setEntries] = useState<WalletEntry[]>([]);
   const [selectedWalletId, setSelectedWalletId] = useState("");
+  const [account, setAccount] = useState<WalletAccount | null>(null);
+  const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
-    const discover = () => {
-      const wallets = findWallets();
-      setDetectedWallets(wallets);
-      setSelectedWalletId(current => wallets.some(wallet => wallet.id === current) ? current : wallets[0]?.id ?? "");
-    };
-    discover();
-    window.addEventListener("load", discover);
-    const retry = window.setTimeout(discover, 750);
-    return () => { window.removeEventListener("load", discover); window.clearTimeout(retry); };
+    const registry = getWallets();
+    const refresh = () => { const wallets = discoverWallets(); setEntries(wallets); setSelectedWalletId(current => wallets.some(wallet => wallet.id === current) ? current : wallets[0]?.id ?? ""); };
+    refresh();
+    const unregister = registry.on("register", refresh);
+    const unregistration = registry.on("unregister", refresh);
+    return () => { unregister(); unregistration(); };
   }, []);
 
-  const activeWallet = useMemo(() => detectedWallets.find(wallet => wallet.id === selectedWalletId)?.provider, [detectedWallets, selectedWalletId]);
-
-  const selectWallet = useCallback((walletId: string) => {
-    if (!providerFor(walletId)) throw new Error("That wallet is no longer available. Reopen the wallet picker.");
-    setPublicKey("");
-    setSelectedWalletId(walletId);
-  }, []);
+  const selected = useMemo(() => entries.find(wallet => wallet.id === selectedWalletId), [entries, selectedWalletId]);
+  const publicKey = account?.address ?? (selected?.mobile ? mobileAddress(selected.mobile.publicKey) : "");
+  const selectWallet = useCallback((walletId: string) => { if (!entries.some(wallet => wallet.id === walletId)) throw new Error("That wallet is no longer available. Open the wallet selector again."); setAccount(null); setSelectedWalletId(walletId); }, [entries]);
 
   const connect = useCallback(async (walletId?: string) => {
-    const id = walletId ?? selectedWalletId;
-    const wallet = providerFor(id) ?? activeWallet;
-    if (!wallet) throw new Error("Install Phantom, Solflare, or Backpack to connect a Solana wallet.");
+    const entry = entries.find(wallet => wallet.id === (walletId ?? selectedWalletId));
+    if (!entry) throw new Error("No Wallet Standard wallet was found. Install a Solana wallet or open this site in its in-app browser.");
     setConnecting(true);
     try {
-      const account = await wallet.connect();
-      setPublicKey(walletAddress(account.publicKey));
+      if (entry.standard) {
+        const connectFeature = feature<{ connect: () => Promise<{ accounts: readonly WalletAccount[] }> }>(entry.standard, StandardConnect);
+        if (!connectFeature) throw new Error(`${entry.name} does not support Wallet Standard connection.`);
+        const result = await connectFeature.connect();
+        const connected = result.accounts.find(candidate => candidate.chains.includes(solanaMainnet)) ?? result.accounts[0];
+        if (!connected) throw new Error(`${entry.name} did not return a Solana account.`);
+        setAccount(connected);
+      } else if (entry.mobile) {
+        await entry.mobile.connect();
+        const address = mobileAddress(entry.mobile.publicKey);
+        if (!address) throw new Error(`${entry.name} did not return a Solana account.`);
+        setAccount({ address, publicKey: new Uint8Array(), chains: [solanaMainnet], features: [] });
+      }
     } finally { setConnecting(false); }
-  }, [activeWallet, selectedWalletId]);
-
-  const disconnect = useCallback(async () => {
-    await activeWallet?.disconnect?.();
-    setPublicKey("");
-  }, [activeWallet]);
-
-  const signTransaction = useCallback(async (transaction: VersionedTransaction) => {
-    if (!activeWallet?.signTransaction) throw new Error("This wallet cannot sign versioned transactions.");
-    return activeWallet.signTransaction(transaction);
-  }, [activeWallet]);
-
-  const signMessage = useCallback(async (message: Uint8Array) => {
-    if (!activeWallet?.signMessage) throw new Error("This wallet does not support message signing.");
-    return activeWallet.signMessage(message);
-  }, [activeWallet]);
+  }, [entries, selectedWalletId]);
 
   useEffect(() => {
-    if (!activeWallet) return;
-    const setConnected = (key?: PublicKeyLike | null) => setPublicKey(walletAddress(key ?? activeWallet.publicKey));
-    const setDisconnected = () => setPublicKey("");
-    setConnected();
-    activeWallet.on?.("connect", setConnected);
-    activeWallet.on?.("accountChanged", setConnected);
-    activeWallet.on?.("disconnect", setDisconnected);
-    return () => {
-      activeWallet.off?.("connect", setConnected);
-      activeWallet.off?.("accountChanged", setConnected);
-      activeWallet.off?.("disconnect", setDisconnected);
-    };
-  }, [activeWallet]);
+    if (!selected?.standard) return;
+    const events = feature<StandardEventsFeature[typeof StandardEvents]>(selected.standard, StandardEvents);
+    return events?.on("change", ({ accounts }) => {
+      if (!accounts) return;
+      const replacement = accounts.find(candidate => candidate.chains.includes(solanaMainnet)) ?? null;
+      setAccount(replacement);
+    });
+  }, [selected]);
 
-  const wallets = useMemo<WalletOption[]>(() => detectedWallets.map(({ id, name }) => ({ id, name })), [detectedWallets]);
+  const disconnect = useCallback(async () => { if (selected?.standard) await feature<{ disconnect: () => Promise<void> }>(selected.standard, StandardDisconnect)?.disconnect(); else await selected?.mobile?.disconnect(); setAccount(null); }, [selected]);
+  const signTransaction = useCallback(async (transaction: VersionedTransaction) => {
+    if (selected?.standard && account) {
+      const signer = feature<SolanaSignTransactionFeature[typeof SolanaSignTransaction]>(selected.standard, SolanaSignTransaction);
+      if (!signer) throw new Error(`${selected.name} cannot sign transactions.`);
+      const [result] = await signer.signTransaction({ account, chain: solanaMainnet, transaction: transaction.serialize() });
+      if (!result) throw new Error("Wallet did not return a signed transaction.");
+      return VersionedTransaction.deserialize(result.signedTransaction);
+    }
+    if (!selected?.mobile) throw new Error("This wallet cannot sign versioned transactions.");
+    return selected.mobile.signTransaction(transaction);
+  }, [account, selected]);
+  const signMessage = useCallback(async (message: Uint8Array) => {
+    if (selected?.standard && account) {
+      const signer = feature<SolanaSignMessageFeature[typeof SolanaSignMessage]>(selected.standard, SolanaSignMessage);
+      if (!signer) throw new Error(`${selected.name} does not support message signing.`);
+      const [result] = await signer.signMessage({ account, message });
+      if (!result) throw new Error("Wallet did not return a message signature.");
+      return result.signature;
+    }
+    if (!selected?.mobile) throw new Error("This wallet does not support message signing.");
+    return selected.mobile.signMessage(message);
+  }, [account, selected]);
+
+  const wallets = useMemo<WalletOption[]>(() => entries.map(({ id, name, icon }) => ({ id, name, icon })), [entries]);
   const value = useMemo<WalletContextValue>(() => ({ publicKey, connecting, wallets, selectedWalletId, selectWallet, signTransaction, signMessage, connect, disconnect }), [connect, connecting, disconnect, publicKey, selectWallet, selectedWalletId, signMessage, signTransaction, wallets]);
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }
 
-export function useSolanaWallet() {
-  const wallet = useContext(WalletContext);
-  if (!wallet) throw new Error("useSolanaWallet must be used inside WalletProvider.");
-  return wallet;
-}
+export function useSolanaWallet() { const wallet = useContext(WalletContext); if (!wallet) throw new Error("useSolanaWallet must be used inside WalletProvider."); return wallet; }

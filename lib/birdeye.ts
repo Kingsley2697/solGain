@@ -13,6 +13,10 @@ type ApiToken = {
   marketCap?: number;
   holder?: number;
   liquidity?: number;
+  verified?: boolean;
+  isVerified?: boolean;
+  creationTime?: number | string;
+  createdAt?: number | string;
   logoURI?: string;
 };
 
@@ -23,6 +27,20 @@ const colors = ["#86a9d8", "#e1a56f", "#9b8acb", "#76b7a5", "#c78091", "#a5a663"
 function numberOrUndefined(value: unknown) {
   const number = Number(value);
   return Number.isFinite(number) ? number : undefined;
+}
+
+function timestampOrUndefined(value: unknown) {
+  if (typeof value === "string" && !/^\d+(\.\d+)?$/.test(value)) {
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  const timestamp = Number(value);
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return undefined;
+  return timestamp < 10_000_000_000 ? timestamp * 1000 : timestamp;
+}
+
+function verifiedOrUndefined(token: ApiToken) {
+  return typeof token.verified === "boolean" ? token.verified : typeof token.isVerified === "boolean" ? token.isVerified : undefined;
 }
 
 export async function fetchBirdeyeTokens(): Promise<MarketToken[]> {
@@ -43,6 +61,8 @@ export async function fetchBirdeyeTokens(): Promise<MarketToken[]> {
       marketCap: Number(token.mc ?? token.marketCap) || 0,
       holders: numberOrUndefined(token.holder),
       liquidity: numberOrUndefined(token.liquidity),
+      verified: verifiedOrUndefined(token),
+      createdAt: timestampOrUndefined(token.creationTime ?? token.createdAt),
       logoURI: token.logoURI,
       color: colors[index % colors.length],
     }));
@@ -66,6 +86,8 @@ export async function fetchBirdeyeToken(address: string): Promise<MarketToken | 
     marketCap: Number(token.mc ?? token.marketCap) || 0,
     holders: numberOrUndefined(token.holder),
     liquidity: numberOrUndefined(token.liquidity),
+    verified: verifiedOrUndefined(token),
+    createdAt: timestampOrUndefined(token.creationTime ?? token.createdAt),
     logoURI: token.logoURI,
     color: colors[0],
   };

@@ -9,6 +9,8 @@ export type MarketToken = {
   marketCap: number;
   holders?: number;
   liquidity?: number;
+  verified?: boolean;
+  createdAt?: number;
   logoURI?: string;
   color: string;
 };
