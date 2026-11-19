@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check, Copy, ExternalLink, ShieldAlert, Wallet } from "lucide-react";
 import { useSolanaWallet } from "@/components/wallet-provider";
 import type { MarketToken } from "@/lib/market";
-import { fetchBirdeyeToken } from "@/lib/birdeye";
+import { fetchBirdeyeToken, readCachedBirdeyeToken } from "@/lib/birdeye";
 import { executeJupiterSwap, getJupiterQuote, simulateJupiterSwap, SOL_MINT, type JupiterQuote, type SwapSimulation } from "@/lib/jupiter";
 import { TriggerStrategy } from "@/components/trigger-strategy";
 import { TokenAlerts } from "@/components/token-alerts";
@@ -146,17 +146,22 @@ export default function TokenPage() {
   const [riskUnavailable, setRiskUnavailable] = useState(false);
   const [copyLabel, setCopyLabel] = useState("Copy address");
   const [tradingMode, setTradingMode] = useState<TradingMode>("instant");
+  const marketRequestInFlight = useRef(false);
   useEffect(() => {
     let active = true;
     const load = async (initial: boolean) => {
+      if (marketRequestInFlight.current) return;
+      marketRequestInFlight.current = true;
       try { const next = await fetchBirdeyeToken(address); if (active) setToken(next); }
       // Retain the last confirmed market snapshot on a temporary refresh
       // failure. Only an initial request can show the unavailable state.
       catch { if (active && initial) setToken(null); }
-      finally { if (active) setLoading(false); }
+      finally { marketRequestInFlight.current = false; if (active) setLoading(false); }
     };
-    setToken(null); setLoading(true); void load(true);
-    const refresh = window.setInterval(() => void load(false), 10_000);
+    const cached = readCachedBirdeyeToken(address);
+    marketRequestInFlight.current = false;
+    setToken(cached?.value ?? null); setLoading(!cached); void load(!cached);
+    const refresh = window.setInterval(() => void load(false), 5_000);
     return () => { active = false; window.clearInterval(refresh); };
   }, [address]);
   useEffect(() => {

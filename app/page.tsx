@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDownRight, ArrowUpRight, ChevronDown, ExternalLink, Flame, LayoutGrid, Search, ShieldCheck, SlidersHorizontal, Sparkles, Wallet } from "lucide-react";
-import { fetchBirdeyeTokens } from "@/lib/birdeye";
+import { fetchBirdeyeTokens, prefetchBirdeyeToken, readCachedBirdeyeTokens } from "@/lib/birdeye";
 import type { MarketToken } from "@/lib/market";
 import { WatchlistButton } from "@/components/watchlist-button";
 import { InstallAppButton } from "@/components/install-app-button";
@@ -19,7 +19,7 @@ const compact = (value: number) => new Intl.NumberFormat("en-US", { notation: "c
 function TokenRow({ token, index }: { token: MarketToken; index: number }) {
   const up = token.change >= 0;
   return <div className="token-row">
-    <Link href={`/token/${token.address}`} className="token-identity" aria-label={`Open ${token.name} token page`}><span className="rank">{String(index + 1).padStart(2, "0")}</span><span className="token-mark" style={{ "--token-color": token.color } as React.CSSProperties}>{token.symbol.slice(0, 2)}</span><span className="token-name"><strong>{token.name}</strong><small>{token.symbol}</small></span></Link>
+    <Link href={`/token/${token.address}`} className="token-identity" aria-label={`Open ${token.name} token page`} onMouseEnter={() => void prefetchBirdeyeToken(token.address)} onFocus={() => void prefetchBirdeyeToken(token.address)}><span className="rank">{String(index + 1).padStart(2, "0")}</span><span className="token-mark" style={{ "--token-color": token.color } as React.CSSProperties}>{token.symbol.slice(0, 2)}</span><span className="token-name"><strong>{token.name}</strong><small>{token.symbol}</small></span></Link>
     <div className="metric"><strong>{price(token.price)}</strong><small>USD</small></div>
     <div className={`metric change ${up ? "positive" : "negative"}`}><strong>{up ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}{Math.abs(token.change).toFixed(1)}%</strong><small>{token.changeWindow.toUpperCase()}</small></div>
     <div className="metric"><strong>{compact(token.volume24h)}</strong><small>24H VOL</small></div>
@@ -60,6 +60,7 @@ export default function Home() {
   const [minimumScore, setMinimumScore] = useState("0");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [newPairsOnly, setNewPairsOnly] = useState(false);
+  const refreshInFlight = useRef(false);
   const refreshHolders = useCallback(async (addresses: string[]) => {
     if (!addresses.length) return;
     try {
@@ -71,6 +72,8 @@ export default function Home() {
     } catch { /* The market rows remain usable while holder data retries. */ }
   }, []);
   const refresh = useCallback(async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
     setRefreshing(true);
     try {
       const live = await fetchBirdeyeTokens();
@@ -79,9 +82,15 @@ export default function Home() {
       void refreshHolders(live.map(token => token.address));
       setUpdated(new Date()); setError("");
     } catch { setError("Live market data is currently unavailable. Please try again shortly."); }
-    finally { setRefreshing(false); }
+    finally { refreshInFlight.current = false; setRefreshing(false); }
   }, [refreshHolders]);
-  useEffect(() => { void refresh(); const timer = window.setInterval(() => void refresh(), 10_000); return () => window.clearInterval(timer); }, [refresh]);
+  useEffect(() => {
+    const cached = readCachedBirdeyeTokens();
+    if (cached) { setTokens(cached.value); setUpdated(new Date(cached.savedAt)); setRefreshing(false); }
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 5_000);
+    return () => window.clearInterval(timer);
+  }, [refresh]);
 
   const visible = useMemo(() => {
     const term = query.trim().toLowerCase();
