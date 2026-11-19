@@ -7,7 +7,14 @@ const holderCache = new Map<string, HolderCacheEntry>();
 const holderRequests = new Map<string, Promise<number | null>>();
 const cacheTtlMs = 5 * 60_000;
 const maxAddresses = 30;
-const maxUncachedPerRequest = 8;
+const maxUncachedPerRequest = 30;
+
+function holderCount(payload: unknown) {
+  const data = (payload as { data?: Record<string, unknown> })?.data;
+  const candidates = [data?.holder, data?.total, data?.totalCount, data?.count, data?.totalItems, (data?.pagination as Record<string, unknown> | undefined)?.total];
+  const value = candidates.map(Number).find(candidate => Number.isFinite(candidate) && candidate >= 0);
+  return value ?? null;
+}
 
 async function fetchHolderCount(address: string, apiKey: string) {
   const existing = holderRequests.get(address);
@@ -17,9 +24,9 @@ async function fetchHolderCount(address: string, apiKey: string) {
       const response = await fetch(`https://public-api.birdeye.so/defi/v3/token/holder?address=${encodeURIComponent(address)}&offset=0&limit=1`, {
         headers: { "X-API-KEY": apiKey, "x-chain": "solana" }, cache: "no-store", signal: AbortSignal.timeout(8_000),
       });
-      const payload = await response.json().catch(() => ({})) as { data?: { holder?: unknown } };
-      const value = Number(payload.data?.holder);
-      if (!response.ok || !Number.isFinite(value) || value < 0) return null;
+      const payload = await response.json().catch(() => ({}));
+      const value = holderCount(payload);
+      if (!response.ok || value === null) return null;
       holderCache.set(address, { value, expiresAt: Date.now() + cacheTtlMs });
       return value;
     } finally { holderRequests.delete(address); }

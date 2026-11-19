@@ -12,6 +12,9 @@ type ApiToken = {
   mc?: number;
   marketCap?: number;
   holder?: number;
+  holderCount?: number;
+  holder_count?: number;
+  holders?: number;
   liquidity?: number;
   verified?: boolean;
   isVerified?: boolean;
@@ -59,7 +62,7 @@ export async function fetchBirdeyeTokens(): Promise<MarketToken[]> {
       changeWindow: "24h",
       volume24h: Number(token.v24hUSD) || 0,
       marketCap: Number(token.mc ?? token.marketCap) || 0,
-      holders: numberOrUndefined(token.holder),
+      holders: numberOrUndefined(token.holder ?? token.holderCount ?? token.holder_count ?? token.holders),
       liquidity: numberOrUndefined(token.liquidity),
       verified: verifiedOrUndefined(token),
       createdAt: timestampOrUndefined(token.creationTime ?? token.createdAt),
@@ -84,7 +87,7 @@ export async function fetchBirdeyeToken(address: string): Promise<MarketToken | 
     changeWindow: token.priceChange1hPercent === undefined ? "24h" : "1h",
     volume24h: Number(token.v24hUSD) || 0,
     marketCap: Number(token.mc ?? token.marketCap) || 0,
-    holders: numberOrUndefined(token.holder),
+    holders: numberOrUndefined(token.holder ?? token.holderCount ?? token.holder_count ?? token.holders),
     liquidity: numberOrUndefined(token.liquidity),
     verified: verifiedOrUndefined(token),
     createdAt: timestampOrUndefined(token.creationTime ?? token.createdAt),
