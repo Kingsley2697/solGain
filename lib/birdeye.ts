@@ -34,6 +34,15 @@ const marketCacheKey = "solgain:market-cache:v3";
 const tokenCachePrefix = "solgain:token-cache:v2:";
 const browserCacheMs = 10 * 60_000;
 const tokenRequests = new Map<string, Promise<MarketToken | null>>();
+const requestTimeoutMs = 10_000;
+
+async function fetchJson(url: string) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), requestTimeoutMs);
+  try { return await fetch(url, { cache: "no-store", signal: controller.signal }); }
+  catch (error) { throw new Error(error instanceof DOMException && error.name === "AbortError" ? "The live data request timed out. Please retry." : "The live data request failed. Please retry."); }
+  finally { window.clearTimeout(timeout); }
+}
 
 function numberOrUndefined(value: unknown) {
   const number = Number(value);
@@ -92,7 +101,7 @@ export function readCachedBirdeyeToken(address: string) { return readCache<Marke
 
 export async function fetchBirdeyeTokens({ offset = 0, limit = 50 }: { offset?: number; limit?: number } = {}): Promise<MarketToken[]> {
   const params = new URLSearchParams({ offset: String(offset), limit: String(limit) });
-  const response = await fetch(`/api/market/tokens?${params}`, { cache: "no-store" });
+  const response = await fetchJson(`/api/market/tokens?${params}`);
   if (!response.ok) throw new Error(`Birdeye request failed (${response.status})`);
   const payload = (await response.json()) as ApiResponse;
   if (!payload.success) throw new Error("Birdeye rejected the market request.");
@@ -105,7 +114,7 @@ export async function fetchBirdeyeTokens({ offset = 0, limit = 50 }: { offset?: 
 }
 
 export async function fetchBirdeyeToken(address: string): Promise<MarketToken | null> {
-  const response = await fetch(`/api/market/token/${encodeURIComponent(address)}`, { cache: "no-store" });
+  const response = await fetchJson(`/api/market/token/${encodeURIComponent(address)}`);
   if (!response.ok) throw new Error(`Birdeye request failed (${response.status})`);
   const payload = (await response.json()) as OverviewResponse;
   if (!payload.success) throw new Error("Birdeye rejected the token request.");
@@ -124,14 +133,14 @@ export function prefetchBirdeyeToken(address: string) {
 }
 
 export async function searchBirdeyeTokens(query: string): Promise<BirdeyeSearchToken[]> {
-  const response = await fetch(`/api/market/search?q=${encodeURIComponent(query)}`, { cache: "no-store" });
+  const response = await fetchJson(`/api/market/search?q=${encodeURIComponent(query)}`);
   const payload = await response.json().catch(() => ({})) as SearchResponse;
   if (!response.ok) throw new Error(payload.error ?? `Birdeye search failed (${response.status})`);
   return payload.items ?? [];
 }
 
 export async function fetchBirdeyeDiscovery(feed: "launches" | "memecoins"): Promise<BirdeyeDiscovery> {
-  const response = await fetch(`/api/market/discovery?feed=${feed}`, { cache: "no-store" });
+  const response = await fetchJson(`/api/market/discovery?feed=${feed}`);
   if (!response.ok) throw new Error(`Birdeye discovery request failed (${response.status})`);
   const payload = await response.json() as ApiResponse;
   if (!payload.success) throw new Error("Birdeye rejected the discovery request.");

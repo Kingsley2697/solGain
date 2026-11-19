@@ -26,7 +26,7 @@ function TokenRow({ token, index }: { token: MarketToken; index: number }) {
     <div className={`metric change ${up ? "positive" : "negative"}`}><strong>{up ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}{Math.abs(token.change).toFixed(1)}%</strong><small>{token.changeWindow.toUpperCase()}</small></div>
     <div className="metric"><strong>{compact(token.volume24h)}</strong><small>24H VOL</small></div>
     <div className="metric"><strong>{compact(token.marketCap)}</strong><small>MARKET CAP</small></div>
-    <div className="metric holders"><strong>{token.holders?.toLocaleString() ?? "Loading"}</strong><small>HOLDERS</small></div>
+    <div className="metric holders"><strong>{token.holders?.toLocaleString() ?? "—"}</strong><small>HOLDERS</small></div>
     <Link href={`/token/${token.address}`} className="market-detail">Live chart</Link><div className="row-actions"><WatchlistButton address={token.address} /><Link href={`/token/${token.address}`} className="row-open" aria-label={`Open ${token.name}`}><ExternalLink size={14} /></Link></div>
   </div>;
 }
@@ -74,18 +74,23 @@ export default function Home() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const refreshInFlight = useRef(false);
+  const holderRefreshInFlight = useRef(false);
   const refreshHolders = useCallback(async (addresses: string[]) => {
-    if (!addresses.length) return;
+    if (!addresses.length || holderRefreshInFlight.current) return;
+    holderRefreshInFlight.current = true;
     try {
-      const response = await fetch(`/api/market/holders?addresses=${encodeURIComponent(addresses.join(","))}`, { cache: "no-store" });
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 10_000);
+      const response = await fetch(`/api/market/holders?addresses=${encodeURIComponent(addresses.join(","))}`, { cache: "no-store", signal: controller.signal }).finally(() => window.clearTimeout(timeout));
       if (!response.ok) return;
       const result = await response.json() as { holders?: Record<string, number> };
       const holders = result.holders ?? {};
       setTokens(current => current.map(token => typeof holders[token.address] === "number" ? { ...token, holders: holders[token.address] } : token));
     } catch { /* The market rows remain usable while holder data retries. */ }
+    finally { holderRefreshInFlight.current = false; }
   }, []);
   const refresh = useCallback(async () => {
-    if (refreshInFlight.current) return;
+    if (document.visibilityState === "hidden" || refreshInFlight.current) return;
     refreshInFlight.current = true;
     setRefreshing(true);
     try {
@@ -109,9 +114,11 @@ export default function Home() {
       const cached = readCachedBirdeyeTokens();
       if (cached) { setTokens(cached.value); setUpdated(new Date(cached.savedAt)); setNextOffset(pageSize); setRefreshing(false); }
     }
-    void refresh();
-    const timer = window.setInterval(() => void refresh(), 5_000);
-    return () => window.clearInterval(timer);
+    const refreshWhenVisible = () => { if (document.visibilityState === "visible") void refresh(); };
+    refreshWhenVisible();
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    const timer = window.setInterval(refreshWhenVisible, 10_000);
+    return () => { document.removeEventListener("visibilitychange", refreshWhenVisible); window.clearInterval(timer); };
   }, [activeTab, refresh]);
 
   const localMatch = useMemo(() => {

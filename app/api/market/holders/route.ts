@@ -7,7 +7,11 @@ const holderCache = new Map<string, HolderCacheEntry>();
 const holderRequests = new Map<string, Promise<number | null>>();
 const cacheTtlMs = 5 * 60_000;
 const maxAddresses = 50;
-const maxUncachedPerRequest = 50;
+// Holder lookups are expensive and are commonly limited to roughly one request
+// per second on entry-level provider plans. Fill a small batch each refresh
+// instead of firing 50 upstream requests at once and being rate-limited.
+const maxUncachedPerRequest = 6;
+const holderRequestSpacingMs = 1_050;
 
 function holderCount(payload: unknown) {
   const data = (payload as { data?: Record<string, unknown> })?.data;
@@ -44,7 +48,12 @@ export async function GET(request: NextRequest) {
   const addresses = Array.from(new Set(raw)).slice(0, maxAddresses).filter(address => { try { new PublicKey(address); return true; } catch { return false; } });
   const now = Date.now();
   const missing = addresses.filter(address => !holderCache.get(address) || holderCache.get(address)!.expiresAt <= now).slice(0, maxUncachedPerRequest);
-  await Promise.all(missing.map(address => fetchHolderCount(address, apiKey)));
+  // Birdeye's lower plans can throttle concurrent holder lookups. Space this
+  // background enrichment work rather than losing an entire batch to 429s.
+  for (let index = 0; index < missing.length; index += 1) {
+    await fetchHolderCount(missing[index], apiKey);
+    if (index < missing.length - 1) await new Promise(resolve => setTimeout(resolve, holderRequestSpacingMs));
+  }
   const holders = Object.fromEntries(addresses.flatMap(address => {
     const entry = holderCache.get(address);
     return entry && entry.expiresAt > Date.now() ? [[address, entry.value]] : [];

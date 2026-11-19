@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Bookmark, Search, Sparkles } from "lucide-react";
 import { useSolanaWallet } from "@/components/wallet-provider";
 import { fetchBirdeyeToken } from "@/lib/birdeye";
@@ -15,16 +15,28 @@ export default function WatchlistPage() {
   const [tokens, setTokens] = useState<MarketToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const refreshInFlight = useRef(false);
   const refreshTokens = useCallback(async (saved: string[]) => {
-    if (!saved.length) { setTokens([]); return; }
-    const live = (await Promise.all(saved.map(address => fetchBirdeyeToken(address).catch(() => null)))).filter((token): token is MarketToken => token !== null);
-    // Keep the last successful values during a temporary provider outage.
-    if (live.length || !saved.length) setTokens(live);
+    if (!saved.length) { setTokens([]); setLoading(false); return; }
+    if (document.visibilityState === "hidden" || refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    try {
+      const live: MarketToken[] = [];
+      // A bounded queue avoids turning a large watchlist into a burst of
+      // provider overview calls, which commonly causes 429 responses.
+      for (let index = 0; index < saved.length; index += 4) {
+        const batch = await Promise.all(saved.slice(index, index + 4).map(address => fetchBirdeyeToken(address).catch(() => null)));
+        live.push(...batch.filter((token): token is MarketToken => token !== null));
+      }
+      // Keep the last successful values during a temporary provider outage.
+      if (live.length) setTokens(live);
+    } finally { refreshInFlight.current = false; setLoading(false); }
   }, []);
   useEffect(() => {
     if (!owner) { setAddresses([]); setLoading(false); return; }
-    setAddresses(getLocalWatchlist(owner));
-    setLoading(false);
+    const local = getLocalWatchlist(owner);
+    setAddresses(local);
+    void refreshTokens(local);
     void getWatchlist(owner, signMessage).then(saved => {
       setAddresses(saved);
       void refreshTokens(saved);
@@ -35,9 +47,11 @@ export default function WatchlistPage() {
   }, [owner, refreshTokens, signMessage]);
   useEffect(() => {
     if (!owner) return;
-    void refreshTokens(addresses);
-    const refresh = window.setInterval(() => void refreshTokens(addresses), 10_000);
-    return () => window.clearInterval(refresh);
+    const refreshWhenVisible = () => { if (document.visibilityState === "visible") void refreshTokens(addresses); };
+    refreshWhenVisible();
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    const refresh = window.setInterval(refreshWhenVisible, 20_000);
+    return () => { document.removeEventListener("visibilitychange", refreshWhenVisible); window.clearInterval(refresh); };
   }, [addresses, owner, refreshTokens]);
   const entries = useMemo(() => {
     const term = query.toLowerCase().trim();

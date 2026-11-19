@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, CircleAlert, RefreshCw, Wallet } from "lucide-react";
 import { useSolanaWallet } from "@/components/wallet-provider";
 import { getAssetsByOwner, type PortfolioAsset } from "@/lib/helius";
@@ -18,8 +18,11 @@ export default function PortfolioPage() {
   const [basis, setBasis] = useState<CostBasis>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const requestInFlight = useRef(false);
 
   const load = useCallback(async (walletAddress: string) => {
+    if (document.visibilityState === "hidden" || requestInFlight.current) return;
+    requestInFlight.current = true;
     setLoading(true); setError("");
     try {
       const walletAssets = await getAssetsByOwner(walletAddress);
@@ -28,14 +31,16 @@ export default function PortfolioPage() {
       localStorage.setItem(basisKey(walletAddress), JSON.stringify(saved));
       setBasis(saved); setAssets(walletAssets);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to load portfolio."); }
-    finally { setLoading(false); }
+    finally { requestInFlight.current = false; setLoading(false); }
   }, []);
 
   useEffect(() => {
     if (!owner) return;
-    void load(owner);
-    const refresh = window.setInterval(() => void load(owner), 30_000);
-    return () => window.clearInterval(refresh);
+    const refreshWhenVisible = () => { if (document.visibilityState === "visible") void load(owner); };
+    refreshWhenVisible();
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    const refresh = window.setInterval(refreshWhenVisible, 30_000);
+    return () => { document.removeEventListener("visibilitychange", refreshWhenVisible); window.clearInterval(refresh); };
   }, [load, owner]);
 
   const promptConnect = async () => {
