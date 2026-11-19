@@ -24,7 +24,7 @@ function TokenRow({ token, index }: { token: MarketToken; index: number }) {
     <div className={`metric change ${up ? "positive" : "negative"}`}><strong>{up ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}{Math.abs(token.change).toFixed(1)}%</strong><small>{token.changeWindow.toUpperCase()}</small></div>
     <div className="metric"><strong>{compact(token.volume24h)}</strong><small>24H VOL</small></div>
     <div className="metric"><strong>{compact(token.marketCap)}</strong><small>MARKET CAP</small></div>
-    <div className="metric holders"><strong>{token.holders?.toLocaleString() ?? "—"}</strong><small>HOLDERS</small></div>
+    <div className="metric holders"><strong>{token.holders?.toLocaleString() ?? "Loading"}</strong><small>HOLDERS</small></div>
     <Link href={`/token/${token.address}`} className="market-detail">Live chart</Link><div className="row-actions"><WatchlistButton address={token.address} /><Link href={`/token/${token.address}`} className="row-open" aria-label={`Open ${token.name}`}><ExternalLink size={14} /></Link></div>
   </div>;
 }
@@ -60,15 +60,27 @@ export default function Home() {
   const [minimumScore, setMinimumScore] = useState("0");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [newPairsOnly, setNewPairsOnly] = useState(false);
+  const refreshHolders = useCallback(async (addresses: string[]) => {
+    if (!addresses.length) return;
+    try {
+      const response = await fetch(`/api/market/holders?addresses=${encodeURIComponent(addresses.join(","))}`, { cache: "no-store" });
+      if (!response.ok) return;
+      const result = await response.json() as { holders?: Record<string, number> };
+      const holders = result.holders ?? {};
+      setTokens(current => current.map(token => typeof holders[token.address] === "number" ? { ...token, holders: holders[token.address] } : token));
+    } catch { /* The market rows remain usable while holder data retries. */ }
+  }, []);
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
       const live = await fetchBirdeyeTokens();
       if (!live.length) throw new Error("Birdeye returned no market tokens.");
-      setTokens(live); setUpdated(new Date()); setError("");
+      setTokens(previous => live.map(token => ({ ...token, holders: token.holders ?? previous.find(current => current.address === token.address)?.holders })));
+      void refreshHolders(live.map(token => token.address));
+      setUpdated(new Date()); setError("");
     } catch { setError("Live market data is currently unavailable. Please try again shortly."); }
     finally { setRefreshing(false); }
-  }, []);
+  }, [refreshHolders]);
   useEffect(() => { void refresh(); const timer = window.setInterval(() => void refresh(), 10_000); return () => window.clearInterval(timer); }, [refresh]);
 
   const visible = useMemo(() => {
