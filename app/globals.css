@@ -158,6 +158,8 @@ a { color: inherit; text-decoration: none; }
 .metric { min-width: 0; display: grid; gap: 4px; justify-items: start; font-variant-numeric: tabular-nums; }
 .metric.change strong { display: flex; align-items: center; gap: 2px; }
 .spark-cell { height: 30px; width: 72px; }
+.market-detail { color: #7ee5a3; font-size: 9px; font-weight: 600; }
+.market-detail:hover { color: #c4ffda; text-decoration: underline; }
 .sparkline { display: block; width: 100%; height: 100%; overflow: visible; }
 .row-open { color: #515159; opacity: 0; transition: opacity .16s; }
 .token-row:hover .row-open { opacity: 1; }

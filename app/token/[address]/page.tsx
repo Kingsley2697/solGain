@@ -53,7 +53,6 @@ function TradePanel({ token, risk, riskUnavailable }: { token: MarketToken; risk
   const clear = () => { setQuote(null); setSimulation(null); setAcknowledledged(false); setSignature(""); setQuotedAt(null); };
   const inputDecimals = side === "Buy" ? 9 : risk?.decimals ?? 6;
   const outputDecimals = side === "Buy" ? risk?.decimals ?? 6 : 9;
-  const inputAmount = quote ? Number(quote.inAmount) / 10 ** inputDecimals : null;
   const outputAmount = quote ? Number(quote.outAmount) / 10 ** outputDecimals : null;
   const inputAmountExact = quote ? formatTokenAmount(quote.inAmount, inputDecimals) : null;
   const outputAmountExact = quote ? formatTokenAmount(quote.outAmount, outputDecimals) : null;
@@ -125,7 +124,6 @@ function TradePanel({ token, risk, riskUnavailable }: { token: MarketToken; risk
     <div className="output-box"><strong>{outputAmount === null ? "—" : outputAmount.toLocaleString("en-US", { maximumFractionDigits: 9 })}</strong><span>{side === "Buy" ? token.symbol : "SOL"}</span></div>
     <div className="slippage-row"><span>Slippage tolerance</span><div>{[50, 100, 300].map(value => <button key={value} className={slippage === value ? "selected" : ""} onClick={() => { setSlippage(value); clear(); }}>{value / 100}%</button>)}</div></div>
     <div className="quote-details"><span>Price impact <strong className={priceImpact > .05 ? "negative" : "positive"}>{quote ? priceImpact.toFixed(2) + "%" : "—"}</strong></span><span>Slippage <strong>{(slippage / 100).toFixed(2)}%</strong></span></div>
-    {quote && <div className="trade-review" role="status"><strong>Review before signing</strong><span>Exact input <b>{inputAmount?.toLocaleString("en-US", { maximumFractionDigits: 9 })} {side === "Buy" ? "SOL" : token.symbol}</b></span><span>Expected output <b>{outputAmount?.toLocaleString("en-US", { maximumFractionDigits: 9 })} {side === "Buy" ? token.symbol : "SOL"}</b></span><span>Jupiter route <b>{quote.router ?? "Not reported"}</b></span><span>Fee <b>{quote.feeBps !== undefined ? String(quote.feeBps) + " bps" + (quote.feeMint ? " · " + short(quote.feeMint) : "") : "Not reported"}</b></span><span>Simulation <b className={simulation?.ok ? "positive" : "negative"}>{simulation?.ok ? "Passed" + (simulation.unitsConsumed ? " · " + simulation.unitsConsumed.toLocaleString() + " units" : "") : simulation ? "Failed — request a new quote" : "Checking"}</b></span>{simulation?.error && <small>{simulation.error}</small>}</div>}
     {quote && <div className="trade-review trade-review-live" role="status"><strong>Live pre-sign review</strong><span>Exact input <b>{inputAmountExact} {side === "Buy" ? "SOL" : token.symbol}</b></span><span>Expected output <b>{outputAmountExact} {side === "Buy" ? token.symbol : "SOL"}</b></span><span>Minimum received <b>{minimumOutput} {side === "Buy" ? token.symbol : "SOL"}</b></span><span>Price impact <b className={priceImpactPercent >= 1 ? "negative" : "positive"}>{priceImpactPercent.toFixed(2)}%</b></span><span>Jupiter route <b>{quote.router ?? "Jupiter aggregator"}</b></span><span>Fee mint <b>{quote.feeMint ? short(quote.feeMint) : quote.platformFee?.feeMint ? short(quote.platformFee.feeMint) : "None reported"}</b></span><span>Token verification <b className={token.verified === false ? "negative" : token.verified ? "positive" : ""}>{token.verified === true ? "Verified" : token.verified === false ? "Unverified" : "Not reported"}</b></span><span>Simulation <b className={simulation?.ok ? "positive" : "negative"}>{simulation?.ok ? "Passed" + (simulation.unitsConsumed ? " · " + simulation.unitsConsumed.toLocaleString() + " units" : "") : simulation ? "Failed — request a new quote" : "Checking"}</b></span><span>Quote status <b className={quoteFresh ? "positive" : "negative"}>{quoteFresh ? `Live · refreshes in ${Math.max(0, Math.ceil((12_000 - quoteAge) / 1_000))}s` : "Expired — refreshing"}</b></span>{simulation?.error && <small>{simulation.error}</small>}</div>}
     {warnings.length > 0 && <div className="trade-warnings" role="alert"><strong>Trade warning</strong>{warnings.map(warning => <span key={warning}>{warning}</span>)}</div>}
     {quote && simulation?.ok && <label className="trade-acknowledgement"><input type="checkbox" checked={acknowledged} onChange={event => setAcknowledledged(event.target.checked)} /> I reviewed the output, fees, simulation, and risk warnings.</label>}
@@ -148,8 +146,32 @@ export default function TokenPage() {
   const [riskUnavailable, setRiskUnavailable] = useState(false);
   const [copyLabel, setCopyLabel] = useState("Copy address");
   const [tradingMode, setTradingMode] = useState<TradingMode>("instant");
-  useEffect(() => { setToken(null); setLoading(true); void fetchBirdeyeToken(address).then(setToken).finally(() => setLoading(false)); }, [address]);
-  useEffect(() => { setRisk(null); setRiskUnavailable(false); void fetch("/api/rugcheck/" + encodeURIComponent(address)).then(response => response.ok ? response.json() as Promise<TokenRisk> : null).then(result => { setRisk(result); setRiskUnavailable(!result); }).catch(() => setRiskUnavailable(true)); }, [address]);
+  useEffect(() => {
+    let active = true;
+    const load = async (initial: boolean) => {
+      try { const next = await fetchBirdeyeToken(address); if (active) setToken(next); }
+      // Retain the last confirmed market snapshot on a temporary refresh
+      // failure. Only an initial request can show the unavailable state.
+      catch { if (active && initial) setToken(null); }
+      finally { if (active) setLoading(false); }
+    };
+    setToken(null); setLoading(true); void load(true);
+    const refresh = window.setInterval(() => void load(false), 10_000);
+    return () => { active = false; window.clearInterval(refresh); };
+  }, [address]);
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const response = await fetch("/api/rugcheck/" + encodeURIComponent(address), { cache: "no-store" });
+        const result = response.ok ? await response.json() as TokenRisk : null;
+        if (active) { setRisk(result); setRiskUnavailable(!result); }
+      } catch { if (active) setRiskUnavailable(true); }
+    };
+    setRisk(null); setRiskUnavailable(false); void load();
+    const refresh = window.setInterval(() => void load(), 60_000);
+    return () => { active = false; window.clearInterval(refresh); };
+  }, [address]);
   if (!token && loading) return <main className="token-loading"><div className="loading-mark" /><strong>Loading token market</strong><span>Checking live market data</span><Link href="/">Back to markets</Link></main>;
   if (!token) return <main className="token-loading"><ShieldAlert size={26} /><strong>Token market unavailable</strong><span>This address could not be resolved to a tradeable Solana token.</span><Link href="/">Back to markets</Link></main>;
   const up = token.change >= 0;

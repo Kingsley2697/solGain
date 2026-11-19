@@ -34,11 +34,13 @@ The token screen can create Jupiter Trigger target-price orders and recurring DC
 
 ## Alerts
 
+On Vercel, the included `vercel.json` invokes the alert worker every minute in production. Set `CRON_SECRET` in that project: Vercel sends it as the worker's Bearer token. On another host, schedule the same route and use `ALERT_CRON_SECRET` as its Bearer token.
+
 Run [the alert migration](supabase/migrations/20261119000000_create_wallet_alerts.sql) to persist alerts. Users can create price, liquidity, volume, and RugCheck-score alerts delivered only as browser push notifications. Push subscriptions are AES-256-GCM encrypted using `ALERT_ENCRYPTION_KEY` before storage.
 
-Set VAPID subject/public/private keys plus `NEXT_PUBLIC_VAPID_PUBLIC_KEY` for browser push. Schedule `GET /api/alerts/run` at least once per minute with `Authorization: Bearer $ALERT_CRON_SECRET`; that protected worker evaluates alerts, sends messages, records delivery outcomes, and deduplicates threshold crossings. The worker uses current Birdeye REST data as the safe baseline. For a Birdeye WebSocket-capable plan, deploy a separate long-running broker that writes its streamed token updates into the same evaluation pipeline—the app does not expose provider API keys to browsers.
+Set VAPID subject/public/private keys plus `NEXT_PUBLIC_VAPID_PUBLIC_KEY` for browser push. The protected worker evaluates alerts, sends notifications, records delivery outcomes, and deduplicates threshold crossings. It uses current Birdeye REST data as the safe baseline. For a Birdeye WebSocket-capable plan, deploy a separate long-running broker that writes its streamed token updates into the same evaluation pipeline—the app does not expose provider API keys to browsers.
 
-When no Birdeye key is configured, market data and charts are clearly labelled as simulated preview data. A failed live chart is shown as unavailable rather than substituted with simulated data.
+When no Birdeye key is configured, market data and charts report as unavailable. The application never substitutes simulated prices or charts for live provider data.
 
 ## Watchlist security
 

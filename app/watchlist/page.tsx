@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Bookmark, Search, Sparkles } from "lucide-react";
 import { useSolanaWallet } from "@/components/wallet-provider";
 import { fetchBirdeyeToken } from "@/lib/birdeye";
@@ -15,19 +15,30 @@ export default function WatchlistPage() {
   const [tokens, setTokens] = useState<MarketToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const refreshTokens = useCallback(async (saved: string[]) => {
+    if (!saved.length) { setTokens([]); return; }
+    const live = (await Promise.all(saved.map(address => fetchBirdeyeToken(address).catch(() => null)))).filter((token): token is MarketToken => token !== null);
+    // Keep the last successful values during a temporary provider outage.
+    if (live.length || !saved.length) setTokens(live);
+  }, []);
   useEffect(() => {
     if (!owner) { setAddresses([]); setLoading(false); return; }
     setAddresses(getLocalWatchlist(owner));
     setLoading(false);
-    void getWatchlist(owner, signMessage).then(async saved => {
+    void getWatchlist(owner, signMessage).then(saved => {
       setAddresses(saved);
-      const live = await Promise.all(saved.map(address => fetchBirdeyeToken(address).catch(() => null)));
-      setTokens(live.filter((token): token is MarketToken => token !== null));
+      void refreshTokens(saved);
     });
     const update = (event: Event) => setAddresses((event as CustomEvent<string[]>).detail);
     window.addEventListener("solgain:watchlist", update);
     return () => window.removeEventListener("solgain:watchlist", update);
-  }, [owner, signMessage]);
+  }, [owner, refreshTokens, signMessage]);
+  useEffect(() => {
+    if (!owner) return;
+    void refreshTokens(addresses);
+    const refresh = window.setInterval(() => void refreshTokens(addresses), 10_000);
+    return () => window.clearInterval(refresh);
+  }, [addresses, owner, refreshTokens]);
   const entries = useMemo(() => {
     const term = query.toLowerCase().trim();
     return tokens.filter(token => addresses.includes(token.address) && (!term || `${token.name} ${token.symbol} ${token.address}`.toLowerCase().includes(term)));

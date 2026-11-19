@@ -15,7 +15,7 @@ export async function GET(request: Request, { params }: { params: { address: str
     if (isRateLimited(request.headers, "rugcheck", 30, 60_000)) return NextResponse.json({ error: "Too many safety scans. Please wait a minute." }, { status: 429 });
     const mint = new PublicKey(params.address);
     const [reportResponse, mintInfo] = await Promise.all([
-      fetch(`https://api.rugcheck.xyz/v1/tokens/${mint.toBase58()}/report`, { next: { revalidate: 60 }, signal: AbortSignal.timeout(8_000) }),
+      fetch(`https://api.rugcheck.xyz/v1/tokens/${mint.toBase58()}/report`, { cache: "no-store", signal: AbortSignal.timeout(8_000) }),
       new Connection(process.env.HELIUS_API_KEY
         ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
         : "https://api.mainnet-beta.solana.com", "confirmed").getParsedAccountInfo(mint),

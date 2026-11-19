@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import webpush from "web-push";
+import * as webpush from "web-push";
 import { NextRequest, NextResponse } from "next/server";
 import { decryptAlertDestination } from "@/lib/alert-crypto";
 import type { AlertChannels, AlertCondition, AlertDestination } from "@/lib/alerts";
@@ -46,7 +46,10 @@ async function deliver(channels: AlertChannels, destination: AlertDestination, t
 }
 
 export async function GET(request: NextRequest) {
-  if (!process.env.ALERT_CRON_SECRET || request.headers.get("authorization") !== `Bearer ${process.env.ALERT_CRON_SECRET}`) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  // Vercel Cron sends CRON_SECRET. ALERT_CRON_SECRET remains supported for
+  // non-Vercel schedulers and local worker tests.
+  const cronSecret = process.env.CRON_SECRET ?? process.env.ALERT_CRON_SECRET;
+  if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   const supabase = database();
   if (!supabase) return NextResponse.json({ error: "Alert storage is not configured." }, { status: 503 });
   const { data, error } = await supabase.from("wallet_alerts").select("id,wallet_address,token_address,condition_type,target_value,channels,destination_ciphertext,last_observed_value,last_triggered_at").eq("active", true).limit(200);

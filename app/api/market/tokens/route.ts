@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   const apiKey = process.env.BIRDEYE_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "Market data is not configured." }, { status: 503 });
   try {
-    const response = await fetch(url, { headers: { "X-API-KEY": apiKey, "x-chain": "solana" }, next: { revalidate: 10 }, signal: AbortSignal.timeout(8_000) });
-    return NextResponse.json(await response.json(), { status: response.status });
+    const response = await fetch(url, { headers: { "X-API-KEY": apiKey, "x-chain": "solana" }, cache: "no-store", signal: AbortSignal.timeout(8_000) });
+    return NextResponse.json(await response.json(), { status: response.status, headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch { return NextResponse.json({ error: "Market data is temporarily unavailable." }, { status: 502 }); }
 }

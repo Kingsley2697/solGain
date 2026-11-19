@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: { address:
   const interval = intervals[range as keyof typeof intervals];
   const query = new URLSearchParams({ address, type: range, time_from: String(now - interval * 72), time_to: String(now) });
   try {
-    const response = await fetch(`https://public-api.birdeye.so/defi/ohlcv?${query}`, { headers: { "X-API-KEY": apiKey, "x-chain": "solana" }, next: { revalidate: 10 }, signal: AbortSignal.timeout(8_000) });
-    return NextResponse.json(await response.json(), { status: response.status });
+    const response = await fetch(`https://public-api.birdeye.so/defi/ohlcv?${query}`, { headers: { "X-API-KEY": apiKey, "x-chain": "solana" }, cache: "no-store", signal: AbortSignal.timeout(8_000) });
+    return NextResponse.json(await response.json(), { status: response.status, headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch { return NextResponse.json({ error: "Chart data is temporarily unavailable." }, { status: 502 }); }
 }
