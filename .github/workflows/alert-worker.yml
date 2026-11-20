@@ -1,0 +1,19 @@
+name: Run alert worker
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  run-alert-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Invoke protected alert worker
+        run: |
+          curl --fail-with-body --show-error --retry 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 30 \
+            --header "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.ALERT_CRON_URL }}"

@@ -36,7 +36,7 @@ The token screen can create Jupiter Trigger target-price orders and recurring DC
 
 ## Alerts
 
-On Vercel, the included `vercel.json` invokes the alert worker every minute in production. Set `CRON_SECRET` in that project: Vercel sends it as the worker's Bearer token. On another host, schedule the same route and use `ALERT_CRON_SECRET` as its Bearer token.
+For a Vercel Hobby deployment, [the alert-worker workflow](.github/workflows/alert-worker.yml) invokes the alert worker every five minutes. Add the same random value as `CRON_SECRET` in both Vercel and the GitHub repository's Actions secrets. Add `ALERT_CRON_URL` as a GitHub Actions secret with the full production URL, such as `https://your-app.vercel.app/api/alerts/run`. Run the workflow manually once after deployment to verify it. Vercel Pro or another scheduler can invoke the same protected route more frequently.
 
 Run [the alert migration](supabase/migrations/20261119000000_create_wallet_alerts.sql) to persist alerts. Users can create price, liquidity, volume, and RugCheck-score alerts delivered only as browser push notifications. Push subscriptions are AES-256-GCM encrypted using `ALERT_ENCRYPTION_KEY` before storage.
 
