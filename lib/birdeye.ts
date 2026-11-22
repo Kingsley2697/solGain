@@ -11,6 +11,13 @@ type ApiToken = {
   v24hUSD?: number;
   mc?: number;
   marketCap?: number;
+  fdv?: number;
+  fullyDilutedValuation?: number;
+  circulatingSupply?: number;
+  circulating_supply?: number;
+  supply?: number;
+  totalSupply?: number;
+  total_supply?: number;
   holder?: number;
   holderCount?: number;
   holder_count?: number;
@@ -96,6 +103,9 @@ function mapToken(token: ApiToken, index = 0): MarketToken | null {
     changeWindow: token.priceChange1hPercent === undefined ? "24h" : "1h",
     volume24h: Number(token.v24hUSD) || 0,
     marketCap: Number(token.mc ?? token.marketCap) || 0,
+    fdv: numberOrUndefined(token.fdv ?? token.fullyDilutedValuation),
+    circulatingSupply: numberOrUndefined(token.circulatingSupply ?? token.circulating_supply ?? token.supply),
+    totalSupply: numberOrUndefined(token.totalSupply ?? token.total_supply),
     holders: numberOrUndefined(token.holder ?? token.holderCount ?? token.holder_count ?? token.holders),
     liquidity: numberOrUndefined(token.liquidity),
     verified: verifiedOrUndefined(token),

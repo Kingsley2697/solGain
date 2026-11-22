@@ -2,10 +2,18 @@ import { PublicKey } from "@solana/web3.js";
 import { NextRequest, NextResponse } from "next/server";
 import { isRateLimited, isSameOrigin } from "@/lib/api-security";
 import { birdeyeQuotaError, markBirdeyeQuota } from "@/lib/birdeye-server";
-import { geckoCandles } from "@/lib/market-providers";
+import { geckoCandles, type ChartRange } from "@/lib/market-providers";
 
-const intervals = { "5m": 300, "15m": 900, "1h": 3600, "4h": 14_400 } as const;
-type Range = keyof typeof intervals;
+const ranges = {
+  "1h": { type: "5m", seconds: 3_600 },
+  "24h": { type: "15m", seconds: 86_400 },
+  "7d": { type: "1h", seconds: 7 * 86_400 },
+  "30d": { type: "4h", seconds: 30 * 86_400 },
+  "90d": { type: "4h", seconds: 90 * 86_400 },
+  "1y": { type: "1D", seconds: 365 * 86_400 },
+  "All": { type: "1D", seconds: 365 * 3 * 86_400 },
+} as const;
+type Range = keyof typeof ranges;
 type CachedChart = { payload: unknown; cachedAt: number };
 const chartCache = new Map<string, CachedChart>();
 const freshCacheMs = 60_000;
@@ -17,7 +25,7 @@ function json(payload: unknown, status = 200, cache = "MISS") {
 
 async function birdeyeChart(address: string, range: Range, apiKey: string) {
   const now = Math.floor(Date.now() / 1000);
-  const query = new URLSearchParams({ address, type: range, time_from: String(now - intervals[range] * 72), time_to: String(now) });
+  const query = new URLSearchParams({ address, type: ranges[range].type, time_from: String(now - ranges[range].seconds), time_to: String(now) });
   const response = await fetch(`https://public-api.birdeye.so/defi/ohlcv?${query}`, { headers: { "X-API-KEY": apiKey, "x-chain": "solana" }, cache: "no-store", signal: AbortSignal.timeout(8_000) });
   const payload = await response.json().catch(() => null);
   if (!response.ok) throw new Error(markBirdeyeQuota(payload, response.status) || `Birdeye ${response.status}`);
@@ -27,7 +35,7 @@ async function birdeyeChart(address: string, range: Range, apiKey: string) {
 export async function GET(request: NextRequest, { params }: { params: { address: string } }) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
   const range = request.nextUrl.searchParams.get("range");
-  if (!range || !(range in intervals)) return NextResponse.json({ error: "Invalid chart range." }, { status: 400 });
+  if (!range || !(range in ranges)) return NextResponse.json({ error: "Invalid chart range." }, { status: 400 });
   let address: string;
   try { address = new PublicKey(params.address).toBase58(); } catch { return NextResponse.json({ error: "Invalid Solana address." }, { status: 400 }); }
   const cacheKey = `${address}:${range}`;
@@ -45,7 +53,7 @@ export async function GET(request: NextRequest, { params }: { params: { address:
   } catch { /* GeckoTerminal is the public OHLCV failover. */ }
 
   try {
-    const payload = await geckoCandles(address, range as Range);
+    const payload = await geckoCandles(address, range as ChartRange);
     chartCache.set(cacheKey, { payload, cachedAt: Date.now() });
     return json(payload);
   } catch {

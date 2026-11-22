@@ -7,6 +7,9 @@ export type MarketToken = {
   changeWindow: "1h" | "24h";
   volume24h: number;
   marketCap: number;
+  fdv?: number;
+  circulatingSupply?: number;
+  totalSupply?: number;
   holders?: number;
   liquidity?: number;
   verified?: boolean;

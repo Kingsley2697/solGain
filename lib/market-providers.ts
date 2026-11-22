@@ -75,6 +75,7 @@ function tokenFromDexPair(pair: DexPair, requestedAddress?: string): JsonRecord 
     priceChange24hPercent: number(priceChange?.h24),
     v24hUSD: number(volume?.h24),
     mc: number(pair.marketCap ?? pair.fdv),
+    fdv: number(pair.fdv) || undefined,
     liquidity: number(liquidity?.usd),
     creationTime: number(pair.pairCreatedAt) || undefined,
     logoURI: string(info?.imageUrl),
@@ -129,6 +130,7 @@ function geckoToken(pool: JsonRecord, included: JsonRecord[]) {
     priceChange24hPercent: number(change?.h24),
     v24hUSD: number(volume?.h24),
     mc: number(attributes?.market_cap_usd ?? attributes?.fdv_usd),
+    fdv: number(attributes?.fdv_usd) || undefined,
     liquidity: number(attributes?.reserve_in_usd),
     creationTime: string(attributes?.pool_created_at),
     logoURI: string(tokenAttributes?.image_url),
@@ -150,16 +152,18 @@ export async function geckoTrending(page = 1) {
   return tokens;
 }
 
-export async function geckoCandles(tokenAddress: string, range: "5m" | "15m" | "1h" | "4h") {
+export type ChartRange = "1h" | "24h" | "7d" | "30d" | "90d" | "1y" | "All";
+
+export async function geckoCandles(tokenAddress: string, range: ChartRange) {
   // GeckoTerminal candles are pool-based. DexScreener supplies the best
   // liquid Solana pool for the mint, then Gecko supplies its public OHLCV.
   const dexPayload = await getJson(`${dexScreener}/tokens/${encodeURIComponent(tokenAddress)}`);
   const pair = bestPair(dexPairs(dexPayload), tokenAddress);
   const poolAddress = string(pair?.pairAddress);
   if (!poolAddress) throw new Error("No liquid Solana pool was found for this token.");
-  const settings = { "5m": ["minute", 5], "15m": ["minute", 15], "1h": ["hour", 1], "4h": ["hour", 4] } as const;
-  const [timeframe, aggregate] = settings[range];
-  const payload = await getJson(`${geckoTerminal}/networks/solana/pools/${encodeURIComponent(poolAddress)}/ohlcv/${timeframe}?aggregate=${aggregate}&limit=72&currency=usd`);
+  const settings = { "1h": ["minute", 5, 24], "24h": ["minute", 15, 96], "7d": ["hour", 1, 168], "30d": ["hour", 4, 180], "90d": ["hour", 4, 540], "1y": ["day", 1, 365], "All": ["day", 1, 1000] } as const;
+  const [timeframe, aggregate, limit] = settings[range];
+  const payload = await getJson(`${geckoTerminal}/networks/solana/pools/${encodeURIComponent(poolAddress)}/ohlcv/${timeframe}?aggregate=${aggregate}&limit=${limit}&currency=usd`);
   const ohlcv = record(record(record(payload)?.data)?.attributes)?.ohlcv_list;
   const items = (Array.isArray(ohlcv) ? ohlcv : []).flatMap(value => {
     if (!Array.isArray(value) || value.length < 5) return [];
