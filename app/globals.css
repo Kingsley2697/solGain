@@ -711,4 +711,41 @@ body { background: var(--background); }
 .terminal-chart-panel .chart-wrap { height: 338px; min-height: 338px; }
 .terminal-chart-panel .chart-canvas { height: 100%; }
 .terminal-chart-panel .chart-fullscreen { height: auto; min-height: 0; }
+.community-news-panel { border-top: 1px solid #1b3022; background: rgba(5, 14, 8, .48); }
+.community-heading { min-height: 57px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid #1b3022; }
+.community-heading > div { display: grid; gap: 5px; }
+.community-heading span { color: #6fdb98; font-size: 7px; font-weight: 800; letter-spacing: .75px; }
+.community-heading strong { color: #e1ffe9; font-size: 12px; }
+.community-heading button { width: 29px; height: 29px; display: grid; place-items: center; border: 1px solid #285c3b; border-radius: 4px; color: #75eaa4; background: rgba(20, 241, 149, .06); cursor: pointer; }
+.community-heading button:hover { border-color: #14f195; }
+.community-heading button:disabled { opacity: .55; cursor: wait; }
+.spinning { animation: spin .8s linear infinite; }
+.community-grid { display: grid; grid-template-columns: 1.15fr .85fr; }
+.community-grid article { min-height: 174px; padding: 15px; border-right: 1px solid #1b3022; }
+.community-grid article:last-child { border-right: 0; }
+.mini-heading { display: flex; align-items: center; gap: 6px; margin-bottom: 11px; color: #9cf8bd; font-size: 9px; font-weight: 700; }
+.mini-heading svg { color: #14f195; }
+.trend-reason > strong { font-size: 11px; }
+.trend-reason ul { display: grid; gap: 7px; margin: 10px 0; padding: 0; list-style: none; }
+.trend-reason li { position: relative; padding-left: 10px; color: #9ab0a0; font-size: 9px; line-height: 1.4; }
+.trend-reason li::before { content: ""; position: absolute; top: 5px; left: 0; width: 4px; height: 4px; border-radius: 50%; background: #14f195; }
+.trend-reason small { color: #6f8275; font-size: 7px; line-height: 1.4; }
+.community-links p { margin: 0 0 12px; color: #a4b7a9; font-size: 9px; line-height: 1.45; }
+.community-link-list { display: grid; gap: 6px; }
+.community-link-list a { min-height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 7px; border: 1px solid #20442d; border-radius: 4px; color: #a8f9c4; background: rgba(20, 241, 149, .04); font-size: 8px; }
+.community-link-list a:hover { border-color: #14f195; background: rgba(20, 241, 149, .1); }
+.community-link-list a svg:last-child { margin-left: auto; }
+.community-link-list > span { color: #71877a; font-size: 9px; line-height: 1.5; }
+.community-news-foot { min-height: 34px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 14px; border-top: 1px solid #1b3022; color: #6f8877; font-size: 8px; }
+.community-news-foot span { display: flex; align-items: center; gap: 5px; }
+.community-news-foot i { width: 5px; height: 5px; border-radius: 50%; background: #14f195; box-shadow: 0 0 7px rgba(20, 241, 149, .8); }
+.community-news-foot a { display: flex; align-items: center; gap: 4px; color: #72e8a1; }
+.community-skeleton { display: grid; gap: 9px; padding: 16px; }
+.community-skeleton i { height: 32px; border-radius: 4px; background: linear-gradient(90deg, #0b160e 20%, #183221 50%, #0b160e 80%); background-size: 220% 100%; animation: shimmer 1.25s infinite; }
+.community-empty { min-height: 170px; display: grid; align-content: center; justify-items: center; gap: 8px; padding: 22px; color: #789080; text-align: center; }
+.community-empty svg { color: #7ce9a7; }
+.community-empty strong { color: #d8f9e1; font-size: 10px; }
+.community-empty span { max-width: 310px; font-size: 9px; line-height: 1.5; }
+.community-empty button { margin-top: 4px; padding: 6px 9px; border: 1px solid #285c3b; border-radius: 4px; color: #a4f9c2; background: rgba(20, 241, 149, .08); font-size: 8px; cursor: pointer; }
+@media (max-width: 760px) { .community-grid { grid-template-columns: 1fr; } .community-grid article { min-height: auto; border-right: 0; border-bottom: 1px solid #1b3022; } .community-news-foot { align-items: flex-start; flex-direction: column; justify-content: center; padding: 8px 14px; } }
 @media (max-width: 760px) { .terminal-chart-panel .chart-wrap { height: 285px; min-height: 285px; } .terminal-chart-panel .chart-fullscreen { height: auto; min-height: 0; } }

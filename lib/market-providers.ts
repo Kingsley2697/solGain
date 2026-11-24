@@ -47,6 +47,21 @@ type DexPair = {
   fdv?: unknown;
   pairCreatedAt?: unknown;
   info?: unknown;
+  txns?: unknown;
+  boosts?: unknown;
+  url?: unknown;
+};
+
+export type TokenCommunityData = {
+  description?: string;
+  links: { label: string; url: string }[];
+  pairUrl?: string;
+  boosts: number;
+  buys: number;
+  sells: number;
+  volume24h: number;
+  liquidity: number;
+  priceChange24h: number;
 };
 
 function dexPairs(payload: unknown) {
@@ -93,6 +108,39 @@ export async function dexToken(address: string) {
   const token = pair && tokenFromDexPair(pair, address);
   if (!token) throw new Error("DexScreener did not return a Solana market for this token.");
   return { success: true, data: token };
+}
+
+function safeUrl(value: unknown) {
+  const candidate = string(value);
+  if (!candidate) return undefined;
+  try { const url = new URL(candidate); return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : undefined; } catch { return undefined; }
+}
+
+function socialUrl(platform: string, handle: string) {
+  const clean = handle.replace(/^@/, "").trim();
+  if (!clean) return undefined;
+  if (/^https?:\/\//i.test(clean)) return safeUrl(clean);
+  if (platform.toLowerCase() === "twitter" || platform.toLowerCase() === "x") return `https://x.com/${encodeURIComponent(clean)}`;
+  if (platform.toLowerCase() === "telegram") return `https://t.me/${encodeURIComponent(clean)}`;
+  return undefined;
+}
+
+export async function dexTokenCommunity(address: string): Promise<TokenCommunityData> {
+  const payload = await getJson(`https://api.dexscreener.com/token-pairs/v1/solana/${encodeURIComponent(address)}`);
+  const pairs = records(payload).filter(pair => pair.chainId === "solana") as DexPair[];
+  const pair = bestPair(pairs, address);
+  if (!pair) throw new Error("DexScreener did not return a Solana community profile.");
+  const info = record(pair.info);
+  const websites = records(info?.websites).flatMap(site => { const url = safeUrl(site.url); return url ? [{ label: string(site.label) ?? "Website", url }] : []; });
+  const socials = records(info?.socials).flatMap(social => { const platform = string(social.platform); const handle = string(social.handle); const url = platform && handle ? socialUrl(platform, handle) : undefined; return url && platform ? [{ label: platform === "twitter" ? "X / Twitter" : platform, url }] : []; });
+  const seen = new Set<string>();
+  const links = [...websites, ...socials].filter(link => !seen.has(link.url) && Boolean(seen.add(link.url))).slice(0, 5);
+  const transactionWindow = record(record(pair.txns)?.h24);
+  const volume = record(pair.volume);
+  const liquidity = record(pair.liquidity);
+  const change = record(pair.priceChange);
+  const boosts = record(pair.boosts);
+  return { description: string(info?.description), links, pairUrl: safeUrl(pair.url), boosts: number(boosts?.active), buys: number(transactionWindow?.buys), sells: number(transactionWindow?.sells), volume24h: number(volume?.h24), liquidity: number(liquidity?.usd), priceChange24h: number(change?.h24) };
 }
 
 export async function dexSearch(query: string) {
