@@ -41,10 +41,30 @@ export default function PriceChart({ address, token }: { address: string; token:
   useEffect(() => {
     if (!host.current) return;
     const element = host.current;
-    const monoFont = getComputedStyle(element).getPropertyValue("--font-mono").trim() || "monospace";
-    const chart = createChart(element, { width: element.clientWidth, height: element.clientHeight || 338, layout: { background: { type: ColorType.Solid, color: "#09100b" }, textColor: "#78907f", fontFamily: monoFont }, grid: { vertLines: { color: showGrid ? "#14231a" : "transparent" }, horzLines: { color: showGrid ? "#14231a" : "transparent" } }, rightPriceScale: { borderColor: "#1b3022", mode: logScale ? 1 : 0 }, timeScale: { borderColor: "#1b3022", timeVisible: true, secondsVisible: false }, crosshair: { vertLine: { color: "#50745d", labelBackgroundColor: "#173424" }, horzLine: { color: "#50745d", labelBackgroundColor: "#173424" } } });
-    const candleSeries = chartType === "candles" ? chart.addSeries(CandlestickSeries, { upColor: "#14f195", downColor: "#ff6b7a", borderVisible: false, wickUpColor: "#55ffc0", wickDownColor: "#ff91a0" }) : null;
-    const priceSeries = chartType === "area" ? (showBaseline ? chart.addSeries(BaselineSeries, { baseValue: { type: "price", price: token.price || 1 }, topLineColor: "#14f195", topFillColor1: "rgba(20,241,149,.28)", topFillColor2: "rgba(20,241,149,.02)", bottomLineColor: "#ff6b7a", bottomFillColor1: "rgba(255,107,122,.02)", bottomFillColor2: "rgba(255,107,122,.25)", lineWidth: 2, priceLineVisible: false }) : chart.addSeries(AreaSeries, { lineColor: token.change >= 0 ? "#14f195" : "#ff6b7a", topColor: token.change >= 0 ? "rgba(20,241,149,.25)" : "rgba(255,107,122,.25)", bottomColor: "rgba(9,16,11,0)", lineWidth: 2, priceLineVisible: false })) : null;
+    const styles = getComputedStyle(element);
+    const themeColor = (name: string, fallback: string) => styles.getPropertyValue(name).trim() || fallback;
+    const monoFont = themeColor("--font-mono", "monospace");
+    const background = themeColor("--background", "#131722");
+    const border = themeColor("--border", "#2A2E39");
+    const muted = themeColor("--muted", "#787B86");
+    const mutedStrong = themeColor("--muted-strong", "#9598A1");
+    const positive = themeColor("--positive", "#089981");
+    const negative = themeColor("--negative", "#F23645");
+    const grid = themeColor("--chart-grid", "rgba(240, 243, 250, .06)");
+    const chart = createChart(element, {
+      width: element.clientWidth,
+      height: element.clientHeight || 338,
+      layout: { background: { type: ColorType.Solid, color: background }, textColor: muted, fontFamily: monoFont },
+      grid: { vertLines: { color: showGrid ? grid : "transparent" }, horzLines: { color: showGrid ? grid : "transparent" } },
+      rightPriceScale: { borderColor: border, mode: logScale ? 1 : 0 },
+      timeScale: { borderColor: border, timeVisible: true, secondsVisible: false },
+      crosshair: {
+        vertLine: { color: muted, labelBackgroundColor: themeColor("--surface-hover", "#2A2E39") },
+        horzLine: { color: mutedStrong, labelBackgroundColor: themeColor("--surface-hover", "#2A2E39") },
+      },
+    });
+    const candleSeries = chartType === "candles" ? chart.addSeries(CandlestickSeries, { upColor: positive, downColor: negative, borderVisible: false, wickUpColor: positive, wickDownColor: negative }) : null;
+    const priceSeries = chartType === "area" ? (showBaseline ? chart.addSeries(BaselineSeries, { baseValue: { type: "price", price: token.price || 1 }, topLineColor: positive, topFillColor1: "rgba(8,153,129,.28)", topFillColor2: "rgba(8,153,129,.02)", bottomLineColor: negative, bottomFillColor1: "rgba(242,54,69,.02)", bottomFillColor2: "rgba(242,54,69,.25)", lineWidth: 2, priceLineVisible: false }) : chart.addSeries(AreaSeries, { lineColor: token.change >= 0 ? positive : negative, topColor: token.change >= 0 ? "rgba(8,153,129,.25)" : "rgba(242,54,69,.25)", bottomColor: "rgba(19,23,34,0)", lineWidth: 2, priceLineVisible: false })) : null;
     let active = true; let hasData = false; let retryTimer: number | undefined; let abort: AbortController | undefined;
     const load = async () => {
       abort?.abort(); abort = new AbortController(); if (!hasData) setState("loading");
