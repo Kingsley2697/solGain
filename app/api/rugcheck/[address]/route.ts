@@ -10,10 +10,11 @@ type RugCheckReport = {
   markets?: { lp?: { lpLockedPct?: number; lpBurnedPct?: number; lpLockedUSD?: number } }[];
 };
 
-export async function GET(request: Request, { params }: { params: { address: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ address: string }> }) {
+  const { address } = await params;
   try {
     if (isRateLimited(request.headers, "rugcheck", 30, 60_000)) return NextResponse.json({ error: "Too many safety scans. Please wait a minute." }, { status: 429 });
-    const mint = new PublicKey(params.address);
+    const mint = new PublicKey(address);
     const [reportResponse, mintInfo] = await Promise.all([
       fetch(`https://api.rugcheck.xyz/v1/tokens/${mint.toBase58()}/report`, { cache: "no-store", signal: AbortSignal.timeout(8_000) }),
       new Connection(process.env.HELIUS_API_KEY

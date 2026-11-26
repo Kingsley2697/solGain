@@ -8,10 +8,11 @@ const cache = new Map<string, CachedCommunity>();
 const freshCacheMs = 60_000;
 const staleCacheMs = 10 * 60_000;
 
-export async function GET(request: NextRequest, { params }: { params: { address: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ address: string }> }) {
+  const { address: requestedAddress } = await params;
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
   let address: string;
-  try { address = new PublicKey(params.address).toBase58(); } catch { return NextResponse.json({ error: "Invalid Solana address." }, { status: 400 }); }
+  try { address = new PublicKey(requestedAddress).toBase58(); } catch { return NextResponse.json({ error: "Invalid Solana address." }, { status: 400 }); }
   const previous = cache.get(address);
   if (previous && Date.now() - previous.cachedAt < freshCacheMs) return NextResponse.json(previous.payload, { headers: { "Cache-Control": "no-store, max-age=0", "X-Community-Cache": "HIT" } });
   if (isRateLimited(request.headers, "market-community", 60, 60_000)) return NextResponse.json({ error: "Too many community requests." }, { status: 429 });

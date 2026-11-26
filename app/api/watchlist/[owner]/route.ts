@@ -30,35 +30,40 @@ function tokenAddress(body: unknown) {
   try { new PublicKey(token.tokenAddress); return token.tokenAddress; } catch { return null; }
 }
 
-export async function GET(request: NextRequest, { params }: { params: { owner: string } }) {
-  const access = authorize(request, params.owner);
+type RouteContext = { params: Promise<{ owner: string }> };
+
+export async function GET(request: NextRequest, { params }: RouteContext) {
+  const { owner } = await params;
+  const access = authorize(request, owner);
   if ("error" in access) return access.error;
-  const { data, error } = await access.supabase.from("wallet_watchlists").select("token_address").eq("wallet_address", params.owner).order("created_at", { ascending: true });
+  const { data, error } = await access.supabase.from("wallet_watchlists").select("token_address").eq("wallet_address", owner).order("created_at", { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 502 });
   return NextResponse.json({ addresses: (data ?? []).map(row => row.token_address) }, { headers: { "Cache-Control": "no-store" } });
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { owner: string } }) {
+export async function PUT(request: NextRequest, { params }: RouteContext) {
+  const { owner } = await params;
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
   if (exceedsContentLength(request.headers, 2_048)) return NextResponse.json({ error: "Request is too large." }, { status: 413 });
   if (isRateLimited(request.headers, "watchlist-write", 40, 60_000)) return NextResponse.json({ error: "Too many watchlist changes. Please wait a minute." }, { status: 429 });
-  const access = authorize(request, params.owner);
+  const access = authorize(request, owner);
   if ("error" in access) return access.error;
   const address = tokenAddress(await request.json().catch(() => null));
   if (!address) return NextResponse.json({ error: "Invalid token address." }, { status: 400 });
-  const { error } = await access.supabase.from("wallet_watchlists").upsert({ wallet_address: params.owner, token_address: address }, { onConflict: "wallet_address,token_address", ignoreDuplicates: true });
+  const { error } = await access.supabase.from("wallet_watchlists").upsert({ wallet_address: owner, token_address: address }, { onConflict: "wallet_address,token_address", ignoreDuplicates: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 502 });
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { owner: string } }) {
+export async function DELETE(request: NextRequest, { params }: RouteContext) {
+  const { owner } = await params;
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
   if (exceedsContentLength(request.headers, 2_048)) return NextResponse.json({ error: "Request is too large." }, { status: 413 });
-  const access = authorize(request, params.owner);
+  const access = authorize(request, owner);
   if ("error" in access) return access.error;
   const address = tokenAddress(await request.json().catch(() => null));
   if (!address) return NextResponse.json({ error: "Invalid token address." }, { status: 400 });
-  const { error } = await access.supabase.from("wallet_watchlists").delete().eq("wallet_address", params.owner).eq("token_address", address);
+  const { error } = await access.supabase.from("wallet_watchlists").delete().eq("wallet_address", owner).eq("token_address", address);
   if (error) return NextResponse.json({ error: error.message }, { status: 502 });
   return NextResponse.json({ ok: true });
 }

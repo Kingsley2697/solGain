@@ -16,13 +16,14 @@ function json(payload: { assets: unknown[] }, cache = "MISS") {
   return NextResponse.json(payload, { headers: { "Cache-Control": "no-store, max-age=0", "X-Portfolio-Cache": cache } });
 }
 
-export async function GET(request: NextRequest, { params }: { params: { owner: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ owner: string }> }) {
+  const { owner: requestedOwner } = await params;
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
   if (isRateLimited(request.headers, "portfolio", 20, 60_000)) return NextResponse.json({ error: "Too many portfolio requests." }, { status: 429 });
   const apiKey = process.env.HELIUS_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "Portfolio data is not configured." }, { status: 503 });
   let owner: string;
-  try { owner = new PublicKey(params.owner).toBase58(); } catch { return NextResponse.json({ error: "Invalid Solana address." }, { status: 400 }); }
+  try { owner = new PublicKey(requestedOwner).toBase58(); } catch { return NextResponse.json({ error: "Invalid Solana address." }, { status: 400 }); }
   const cached = portfolioCache.get(owner);
   if (cached && Date.now() - cached.cachedAt < freshCacheMs) return json(cached.payload, "HIT");
   try {

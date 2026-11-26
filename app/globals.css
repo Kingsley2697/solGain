@@ -41,7 +41,7 @@ body {
 
 * { box-sizing: border-box; }
 body { background: var(--background); color: var(--foreground); font-family: var(--font-sans), sans-serif; }
-button, input { font: inherit; }
+button, input, select, textarea { font: inherit; }
 button { color: inherit; }
 a { color: inherit; text-decoration: none; }
 .terminal-shell { min-height: 100vh; background: radial-gradient(ellipse at 55% -38%, rgba(167,139,250,.095), transparent 55%), #0a0a0b; }
@@ -626,7 +626,7 @@ body { background: var(--background); }
 .brand { gap: 11px; }
 .brand > span:last-child {
   color: #f1fff4;
-  font-family: "Arial Rounded MT Bold", "Arial Black", var(--font-geist-sans), sans-serif;
+  font-family: var(--font-display), sans-serif;
   font-size: 14px;
   font-weight: 900;
   letter-spacing: .04em;
@@ -683,7 +683,7 @@ body { background: var(--background); }
 .eyebrow i { background: #14f195; box-shadow: 0 0 12px rgba(20, 241, 149, .7); }
 .market-heading h1, .portfolio-heading h1, .watchlist-heading h1, .connect-state h1, .offline-card h1 {
   color: var(--heading);
-  font-family: "Arial Rounded MT Bold", "Arial Black", var(--font-geist-sans), sans-serif;
+  font-family: var(--font-display), sans-serif;
   font-weight: 900;
   letter-spacing: .015em;
 }
@@ -769,6 +769,7 @@ body { background: var(--background); }
 .market-stat,
 .market-signal,
 .statistics-strip,
+.statistics-grid span,
 .chart-ranges button,
 .chart-types button,
 .chart-settings-menu,
@@ -791,9 +792,11 @@ body { background: var(--background); }
 .hero-address > span,
 .chart-foot,
 .statistics-grid strong,
-.statistics-grid small,
+.statistics-grid small.positive,
+.statistics-grid small.negative,
 .full-token-metrics b,
 .holder-row strong,
+.holder-row > span:first-child,
 .holder-row > span:last-child,
 .amount-input input,
 .output-box strong,
@@ -801,7 +804,9 @@ body { background: var(--background); }
 .trade-review b,
 .wallet-button.connected span,
 .connected-wallet,
-.portfolio-stats section > strong,
+.portfolio-stats section:nth-child(-n + 2) > strong,
+.portfolio-stats section > small.positive,
+.portfolio-stats section > small.negative,
 .asset-row > strong,
 .asset-row > span,
 .watchlist-metric strong,

@@ -20,10 +20,11 @@ async function birdeyeToken(address: string, apiKey: string) {
   return payload;
 }
 
-export async function GET(request: NextRequest, { params }: { params: { address: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ address: string }> }) {
+  const { address: requestedAddress } = await params;
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
   let address: string;
-  try { address = new PublicKey(params.address).toBase58(); } catch { return NextResponse.json({ error: "Invalid Solana address." }, { status: 400 }); }
+  try { address = new PublicKey(requestedAddress).toBase58(); } catch { return NextResponse.json({ error: "Invalid Solana address." }, { status: 400 }); }
   const cached = tokenCache.get(address);
   if (cached && Date.now() - cached.cachedAt < freshCacheMs) return json(cached.payload, 200, "HIT");
   if (isRateLimited(request.headers, "market-token", 240, 60_000)) return NextResponse.json({ error: "Too many market requests." }, { status: 429 });

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
-import localFont from "next/font/local";
+import { Geist, JetBrains_Mono, Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
 import { PwaRegistration } from "@/components/pwa-registration";
 import { WalletProvider } from "@/components/wallet-provider";
 import "./globals.css";
@@ -17,11 +16,10 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-sans",
 });
 
-const geist = localFont({
-  src: "./fonts/GeistVF.woff",
+const geist = Geist({
+  subsets: ["latin"],
   display: "swap",
   variable: "--font-dense",
-  weight: "100 900",
 });
 
 const jetBrainsMono = JetBrains_Mono({

@@ -32,12 +32,13 @@ async function birdeyeChart(address: string, range: Range, apiKey: string) {
   return payload;
 }
 
-export async function GET(request: NextRequest, { params }: { params: { address: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ address: string }> }) {
+  const { address: requestedAddress } = await params;
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
   const range = request.nextUrl.searchParams.get("range");
   if (!range || !(range in ranges)) return NextResponse.json({ error: "Invalid chart range." }, { status: 400 });
   let address: string;
-  try { address = new PublicKey(params.address).toBase58(); } catch { return NextResponse.json({ error: "Invalid Solana address." }, { status: 400 }); }
+  try { address = new PublicKey(requestedAddress).toBase58(); } catch { return NextResponse.json({ error: "Invalid Solana address." }, { status: 400 }); }
   const cacheKey = `${address}:${range}`;
   const cached = chartCache.get(cacheKey);
   if (cached && Date.now() - cached.cachedAt < freshCacheMs) return json(cached.payload, 200, "HIT");
