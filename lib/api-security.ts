@@ -12,10 +12,20 @@ export function clientAddress(headers: Headers) {
 
 export function isSameOrigin(request: Request) {
   const origin = request.headers.get("origin");
-  // API routes are called only by this browser app. Keep local curl-based
-  // development convenient, but require an Origin match in production.
-  if (!origin) return process.env.NODE_ENV !== "production";
-  return origin === new URL(request.url).origin;
+  const requestOrigin = new URL(request.url).origin;
+  if (origin) return origin === requestOrigin;
+
+  // Browsers omit Origin on same-origin GETs; Fetch Metadata and Referer
+  // preserve the same-origin check without rejecting those requests.
+  const fetchSite = request.headers.get("sec-fetch-site");
+  if (fetchSite) return fetchSite === "same-origin";
+
+  const referer = request.headers.get("referer");
+  if (referer) {
+    try { return new URL(referer).origin === requestOrigin; } catch { return false; }
+  }
+
+  return process.env.NODE_ENV !== "production";
 }
 
 export function exceedsContentLength(headers: Headers, maximumBytes: number) {
