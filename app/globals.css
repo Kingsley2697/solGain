@@ -1,5 +1,3 @@
-@import "@fontsource/inter/index.css";
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -19,7 +17,7 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), sans-serif;
 }
 
 @layer utilities {
@@ -42,7 +40,7 @@ body {
 }
 
 * { box-sizing: border-box; }
-body { background: var(--background); color: var(--foreground); font-family: Inter, var(--font-geist-sans), sans-serif; }
+body { background: var(--background); color: var(--foreground); font-family: var(--font-sans), sans-serif; }
 button, input { font: inherit; }
 button { color: inherit; }
 a { color: inherit; text-decoration: none; }
@@ -749,3 +747,64 @@ body { background: var(--background); }
 .community-empty button { margin-top: 4px; padding: 6px 9px; border: 1px solid #285c3b; border-radius: 4px; color: #a4f9c2; background: rgba(20, 241, 149, .08); font-size: 8px; cursor: pointer; }
 @media (max-width: 760px) { .community-grid { grid-template-columns: 1fr; } .community-grid article { min-height: auto; border-right: 0; border-bottom: 1px solid #1b3022; } .community-news-foot { align-items: flex-start; flex-direction: column; justify-content: center; padding: 8px 14px; } }
 @media (max-width: 760px) { .terminal-chart-panel .chart-wrap { height: 285px; min-height: 285px; } .terminal-chart-panel .chart-fullscreen { height: auto; min-height: 0; } }
+
+/* Typography roles: display for identity, dense for compact controls, mono for live data. */
+.brand,
+.brand > span:last-child,
+.market-heading h1,
+.portfolio-heading h1,
+.watchlist-heading h1,
+.connect-state h1,
+.offline-card h1,
+.hero-name h1,
+.token-modal header strong,
+.token-loading strong {
+  font-family: var(--font-display), sans-serif;
+}
+
+.token-table,
+.table-status,
+.market-stat,
+.market-signal,
+.statistics-strip,
+.chart-ranges button,
+.chart-types button,
+.chart-settings-menu,
+.token-category,
+.filter-button i,
+.performance-card select,
+.asset-table,
+.watchlist-list,
+.holder-header,
+.holder-row {
+  font-family: var(--font-dense), sans-serif;
+}
+
+.rank,
+.metric,
+.market-stat strong,
+.market-stat em,
+.hero-price,
+.hero-metrics strong,
+.hero-address > span,
+.chart-foot,
+.statistics-grid strong,
+.statistics-grid small,
+.full-token-metrics b,
+.holder-row strong,
+.holder-row > span:last-child,
+.amount-input input,
+.output-box strong,
+.quote-details strong,
+.trade-review b,
+.wallet-button.connected span,
+.connected-wallet,
+.portfolio-stats section > strong,
+.asset-row > strong,
+.asset-row > span,
+.watchlist-metric strong,
+.watchlist-change,
+.trade-success {
+  font-family: var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
+}

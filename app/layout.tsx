@@ -1,18 +1,33 @@
 import type { Metadata } from "next";
+import { JetBrains_Mono, Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
 import localFont from "next/font/local";
 import { PwaRegistration } from "@/components/pwa-registration";
 import { WalletProvider } from "@/components/wallet-provider";
 import "./globals.css";
 
-const geistSans = localFont({
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-display",
+});
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-sans",
+});
+
+const geist = localFont({
   src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
+  display: "swap",
+  variable: "--font-dense",
   weight: "100 900",
 });
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
+
+const jetBrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
@@ -34,7 +49,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${spaceGrotesk.variable} ${plusJakartaSans.variable} ${geist.variable} ${jetBrainsMono.variable} font-sans antialiased`}
       >
         <PwaRegistration />
         <WalletProvider>{children}</WalletProvider>
