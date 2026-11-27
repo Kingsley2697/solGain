@@ -5,7 +5,7 @@
 :root {
   color-scheme: dark;
   --background: #131722;
-  --foreground: #D1D4DC;
+  --foreground: #F1F3F8;
   --surface: #1E222D;
   --surface-raised: #1E222D;
   --surface-hover: #2A2E39;
@@ -1444,11 +1444,36 @@ body { background: var(--background); }
 }
 
 .token-utilities > button:not(.watchlist-toggle):hover,
-.trade-mode-picker button:hover,
 .slippage-row button.selected {
   border-color: var(--accent);
   color: #FFFFFF;
   background: var(--accent);
+}
+
+.trade-mode-picker button {
+  color: var(--foreground);
+}
+
+.trade-mode-picker button:hover:not(.selected) {
+  border-color: var(--border);
+  color: var(--foreground);
+  background: var(--surface-hover);
+}
+
+.trade-mode-picker button strong {
+  color: var(--foreground);
+  font-size: 10px;
+}
+
+.trade-mode-picker button small {
+  color: var(--muted-strong);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.trade-mode-picker button.selected strong,
+.trade-mode-picker button.selected small {
+  color: #FFFFFF;
 }
 
 .hero-address button:hover,
@@ -1509,8 +1534,63 @@ body { background: var(--background); }
 
 .swap-button.sell,
 .swap-button.sell:hover {
-  border-color: var(--accent);
+  border-color: var(--negative);
   color: #FFFFFF;
-  background: var(--accent);
+  background: var(--negative);
   box-shadow: none;
+}
+
+.trade-tabs button:not(.active).sell {
+  color: var(--negative);
+}
+
+.trade-tabs button.active.sell {
+  border-color: var(--negative);
+  color: #FFFFFF;
+  background: var(--negative);
+  box-shadow: none;
+}
+
+.sell-link {
+  border-color: var(--negative);
+  color: var(--negative);
+  background: transparent;
+}
+
+.sell-link:hover {
+  border-color: var(--negative);
+  color: #FFFFFF;
+  background: var(--negative);
+}
+
+.metric.change.positive strong {
+  color: var(--positive);
+}
+
+.metric.change.negative strong {
+  color: var(--negative);
+}
+
+.tab-list button[data-market-tab="Top Gainers"] {
+  color: var(--positive);
+}
+
+.tab-list button[data-market-tab="Top Losers"] {
+  color: var(--negative);
+}
+
+.tab-list button[data-market-tab="New Launches"] {
+  color: var(--accent);
+}
+
+.tab-list button[data-market-tab="Top Gainers"].selected::after {
+  background: var(--positive);
+}
+
+.tab-list button[data-market-tab="Top Losers"].selected::after {
+  background: var(--negative);
+}
+
+.tab-list button[data-market-tab="New Launches"].selected::after {
+  background: var(--accent);
 }
