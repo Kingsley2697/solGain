@@ -257,8 +257,8 @@ a { color: inherit; text-decoration: none; }
   .table-footer { display: none; }
   .page-footer { display: none; }
   .mobile-dock { height: calc(62px + env(safe-area-inset-bottom)); position: fixed; bottom: 0; left: 0; right: 0; display: flex; z-index: 5; justify-content: space-around; align-items: center; border-top: 1px solid #29282f; background: rgba(19, 23, 34, .96); backdrop-filter: blur(14px); padding-bottom: env(safe-area-inset-bottom); }
-  .mobile-dock a { min-width: 70px; display: grid; justify-items: center; gap: 4px; color: #777680; font-size: 9px; }
-  .mobile-dock a.dock-active { color: #c5b2ff; }
+  .mobile-dock a { min-width: 0; flex: 1 1 0; display: grid; justify-items: center; gap: 4px; color: var(--muted); font-size: 9px; }
+  .mobile-dock a.dock-active { color: #D1D4DC; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
 
@@ -1257,6 +1257,10 @@ input[type="radio"] {
 .mobile-dock {
   border-color: var(--border);
   background: rgba(19, 23, 34, .96);
+}
+
+.mobile-dock a.dock-active svg {
+  color: var(--accent);
 }
 
 button:focus-visible,

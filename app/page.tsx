@@ -2,13 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowDownRight, ArrowUpRight, ChevronDown, ExternalLink, Flame, LayoutGrid, Search, ShieldCheck, SlidersHorizontal, Sparkles, Wallet } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowDownRight, ArrowUpRight, ChevronDown, ExternalLink, Flame, Search, ShieldCheck, SlidersHorizontal, Sparkles, Wallet } from "lucide-react";
 import { fetchBirdeyeDiscovery, fetchBirdeyeToken, fetchBirdeyeTokens, prefetchBirdeyeToken, readCachedBirdeyeTokens, searchBirdeyeTokens, type BirdeyeSearchToken } from "@/lib/birdeye";
 import type { MarketToken } from "@/lib/market";
 import { WatchlistButton } from "@/components/watchlist-button";
 import { InstallAppButton } from "@/components/install-app-button";
 import { useSolanaWallet } from "@/components/wallet-provider";
 import { scoreMarketToken } from "@/lib/market-score";
+import { setActiveToken } from "@/lib/active-token";
+import { MobileDock } from "@/components/mobile-dock";
 
 type MarketTab = "Trending" | "Top Gainers" | "Top Losers" | "New Launches" | "Memecoins";
 const tabs: MarketTab[] = ["Trending", "Top Gainers", "Top Losers", "New Launches", "Memecoins"];
@@ -21,19 +24,19 @@ const compact = (value: number) => new Intl.NumberFormat("en-US", { notation: "c
 function TokenRow({ token, index, pinned }: { token: MarketToken; index: number; pinned: boolean }) {
   const up = token.change >= 0;
   return <div className={`token-row${pinned ? " pinned-token" : ""}`}>
-    <Link href={`/token/${token.address}`} className="token-identity" aria-label={`Open ${token.name} token page`} onMouseEnter={() => void prefetchBirdeyeToken(token.address)} onFocus={() => void prefetchBirdeyeToken(token.address)}><span className="rank">{String(index + 1).padStart(2, "0")}</span><span className="token-mark" style={{ "--token-color": token.color } as React.CSSProperties}>{token.symbol.slice(0, 2)}</span><span className="token-name"><strong>{token.name}</strong><small>{token.symbol}</small></span></Link>
+    <Link href={`/token/${token.address}`} className="token-identity" aria-label={`Open ${token.name} token page`} onClick={() => setActiveToken(token.address)} onMouseEnter={() => void prefetchBirdeyeToken(token.address)} onFocus={() => void prefetchBirdeyeToken(token.address)}><span className="rank">{String(index + 1).padStart(2, "0")}</span><span className="token-mark" style={{ "--token-color": token.color } as React.CSSProperties}>{token.symbol.slice(0, 2)}</span><span className="token-name"><strong>{token.name}</strong><small>{token.symbol}</small></span></Link>
     <div className="metric"><strong>{price(token.price)}</strong><small>USD</small></div>
     <div className={`metric change ${up ? "positive" : "negative"}`}><strong>{up ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}{Math.abs(token.change).toFixed(1)}%</strong><small>{token.changeWindow.toUpperCase()}</small></div>
     <div className="metric"><strong>{compact(token.volume24h)}</strong><small>24H VOL</small></div>
     <div className="metric"><strong>{compact(token.marketCap)}</strong><small>MARKET CAP</small></div>
     <div className="metric liquidity"><strong>{token.liquidity === undefined ? "—" : compact(token.liquidity)}</strong><small>LIQUIDITY</small></div>
-    <Link href={`/token/${token.address}`} className="market-detail">Live chart</Link><div className="row-actions"><WatchlistButton address={token.address} /><Link href={`/token/${token.address}`} className="row-open" aria-label={`Open ${token.name}`}><ExternalLink size={14} /></Link></div>
+    <Link href={`/token/${token.address}`} className="market-detail" onClick={() => setActiveToken(token.address)}>Live chart</Link><div className="row-actions"><WatchlistButton address={token.address} /><Link href={`/token/${token.address}`} className="row-open" aria-label={`Open ${token.name}`} onClick={() => setActiveToken(token.address)}><ExternalLink size={14} /></Link></div>
   </div>;
 }
 
 function MobileTokenRow({ token, index, pinned }: { token: MarketToken; index: number; pinned: boolean }) {
   const up = token.change >= 0;
-  return <Link href={`/token/${token.address}`} className={`mobile-token-row${pinned ? " pinned-token" : ""}`} aria-label={`Open ${token.name} token page`} onMouseEnter={() => void prefetchBirdeyeToken(token.address)} onFocus={() => void prefetchBirdeyeToken(token.address)}>
+  return <Link href={`/token/${token.address}`} className={`mobile-token-row${pinned ? " pinned-token" : ""}`} aria-label={`Open ${token.name} token page`} onClick={() => setActiveToken(token.address)} onMouseEnter={() => void prefetchBirdeyeToken(token.address)} onFocus={() => void prefetchBirdeyeToken(token.address)}>
     <span className="mobile-token-identity"><span className="mobile-token-icon"><span className="token-mark" style={{ "--token-color": token.color } as React.CSSProperties}>{token.symbol.slice(0, 2)}</span><span className="mobile-rank">{index + 1}</span></span><span className="mobile-token-copy"><span><strong>{token.name}</strong><small>{token.symbol}</small></span><em>{compact(token.marketCap)} MC</em></span></span>
     <span className="mobile-token-quote"><strong>{price(token.price)}</strong><em className={up ? "positive" : "negative"}>{up ? "+" : ""}{token.change.toFixed(1)}% <small>24H</small></em></span>
   </Link>;
@@ -50,6 +53,7 @@ function WalletButton() {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<MarketTab>("Trending");
   const [tokens, setTokens] = useState<MarketToken[]>([]);
   const [pinnedTokens, setPinnedTokens] = useState<MarketToken[]>([]);
@@ -84,20 +88,6 @@ export default function Home() {
     } catch { /* The market rows remain usable while holder data retries. */ }
     finally { holderRefreshInFlight.current = false; }
   }, []);
-  const pinSearchedToken = useCallback(async (address: string) => {
-    setSearching(true); setSearchError("");
-    try {
-      const token = await fetchBirdeyeToken(address);
-      if (!token) throw new Error("This token could not be resolved to a live Solana market.");
-      // Most-recent searches stay pinned. The table reserves the remaining
-      // positions for the current market ranking, and caps pins at 20 rows.
-      setPinnedTokens(current => [token, ...current.filter(item => item.address !== token.address)].slice(0, tableSize));
-      void refreshHolders([token.address]);
-      setQuery(""); setSearchResults([]);
-    } catch (reason) {
-      setSearchError(reason instanceof Error ? reason.message : "Token lookup is unavailable.");
-    } finally { setSearching(false); }
-  }, [refreshHolders]);
   const refresh = useCallback(async () => {
     if (document.visibilityState === "hidden" || Date.now() < providerRetryAt.current || refreshInFlight.current) return;
     refreshInFlight.current = true;
@@ -174,13 +164,14 @@ export default function Home() {
   const submitSearch = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const term = query.trim();
-    if (solanaAddress.test(term)) { void pinSearchedToken(term); return; }
-    if (searchResults[0]) void pinSearchedToken(searchResults[0].address);
+    const address = solanaAddress.test(term) ? term : searchResults[0]?.address;
+    if (!address) return;
+    setActiveToken(address); router.push(`/token/${address}`);
   };
 
   return <main className="terminal-shell">
     <header className="topbar"><Link href="/" className="brand" aria-label="solGain home"><span className="brand-mark"><i /></span><span>SOL<span>GAIN</span></span></Link><nav className="primary-nav" aria-label="Main navigation"><Link className="active" href="/">Markets</Link><Link href="/portfolio">Portfolio</Link><Link href="/watchlist">Watchlist</Link></nav><div className="topbar-actions"><div className="network-status"><i /> SOLANA MAINNET</div><InstallAppButton /><WalletButton /></div></header>
-    <section className="market-main"><div className="market-heading"><div><div className="eyebrow"><i /> SOLANA ECOSYSTEM <span>/</span> TOKEN SCREENER</div><h1>Market overview</h1><p>Live data from multiple market providers.</p></div><div className="market-tools"><div className="market-search"><form className="search-box" onSubmit={submitSearch}><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search token or address..." aria-label="Search tokens by name, ticker, or address" autoComplete="off" /></form><SearchResults results={searchResults} loading={searching} error={searchError} onSelect={token => void pinSearchedToken(token.address)} /></div><button className="filter-button" onClick={() => setFiltersOpen(open => !open)} aria-expanded={filtersOpen}><SlidersHorizontal size={14} /> Filters</button></div></div>
+    <section className="market-main"><div className="market-heading"><div><div className="eyebrow"><i /> SOLANA ECOSYSTEM <span>/</span> TOKEN SCREENER</div><h1>Market overview</h1><p>Live data from multiple market providers.</p></div><div className="market-tools"><div className="market-search"><form className="search-box" onSubmit={submitSearch}><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search token or address..." aria-label="Search tokens by name, ticker, or address" autoComplete="off" /></form><SearchResults results={searchResults} loading={searching} error={searchError} onSelect={token => { setActiveToken(token.address); router.push(`/token/${token.address}`); }} /></div><button className="filter-button" onClick={() => setFiltersOpen(open => !open)} aria-expanded={filtersOpen}><SlidersHorizontal size={14} /> Filters</button></div></div>
       {filtersOpen && <section className="discovery-filters" aria-label="Token discovery filters"><div><label>Min liquidity (USD)<input type="number" min="0" value={minimumLiquidity} onChange={event => setMinimumLiquidity(event.target.value)} /></label><label>Min 24h volume (USD)<input type="number" min="0" value={minimumVolume} onChange={event => setMinimumVolume(event.target.value)} /></label><label>Min transparent score<input type="number" min="0" max="100" value={minimumScore} onChange={event => setMinimumScore(event.target.value)} /></label></div><div className="discovery-toggles"><label><input type="checkbox" checked={verifiedOnly} onChange={event => setVerifiedOnly(event.target.checked)} /> Verified only</label><label><input type="checkbox" checked={newPairsOnly} onChange={event => setNewPairsOnly(event.target.checked)} /> New pairs (under 7 days)</label><button onClick={() => { setMinimumLiquidity("0"); setMinimumVolume("0"); setMinimumScore("0"); setVerifiedOnly(false); setNewPairsOnly(false); }}>Reset</button></div><p>Transparent score: liquidity (30), 24h activity (25), holder count (20), verification (15), and market cap (10). Authority and holder-concentration filters remain available on each token&apos;s live safety scan.</p></section>}
       <div className="market-strip"><div className="live-label"><i /> {error ? "MARKET UNAVAILABLE" : "LIVE MARKET"}</div><div className="market-stat"><small>TRACKED TOKENS</small><strong>{visible.length}</strong></div><div className="market-stat"><small>24H VOLUME</small><strong>{compact(totalVolume)}</strong><em>TRACKED TOKENS</em></div><div className="market-stat"><small>TOP 24H MOVER</small><strong>{largestMover?.symbol ?? "—"}</strong><em className={largestMover && largestMover.change >= 0 ? "positive" : "negative"}>{largestMover ? `${largestMover.change >= 0 ? "+" : ""}${largestMover.change.toFixed(1)}%` : "—"}</em></div><div className="market-signal"><span><Sparkles size={14} /></span><small>DATA MODE</small><strong>{error ? "Unavailable" : "Live feed"}</strong></div></div>
       <section className="tokens-section" aria-labelledby="tokens-heading"><div className="section-topline"><div className="tab-list" role="tablist" aria-label="Token rankings">{tabs.map(tab => <button key={tab} role="tab" data-market-tab={tab} aria-selected={activeTab === tab} className={activeTab === tab ? "selected" : ""} onClick={() => { if (tab !== activeTab) { setRefreshing(true); setActiveTab(tab); } }}>{tab === "Trending" && <Flame size={14} />}{tab}</button>)}</div><div className="table-status"><i className={refreshing ? "refreshing" : ""} />{error ? "Market data unavailable" : refreshing ? `Loading ${activeTab}…` : "Market data live"}<span>·</span>{updated ? `Updated ${updated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "Syncing market"}</div></div>
@@ -188,6 +179,6 @@ export default function Home() {
         <div className="mobile-token-list" role="list">{visible.length ? visible.map((token, index) => <MobileTokenRow key={token.address} token={token} index={index} pinned={pinnedAddresses.has(token.address)} />) : <div className="empty-state"><Search size={19} /><strong>{error ? "Live market data unavailable" : "No tokens found"}</strong><span>{error ? "No cached or simulated prices are shown. Check your market-data connection and retry." : "Try another loaded token or paste a token address."}</span></div>}</div>
         <div className="table-footer"><span>Showing <strong>{visible.length}</strong> of <strong>{tableSize}</strong> ranked tokens{pinnedTokens.length ? ` · ${pinnedTokens.length} pinned` : ""}</span><span>Search results replace the lowest-ranked unpinned row.</span></div></section>
       <footer className="page-footer"><span>Live market data from Birdeye, DexScreener, and GeckoTerminal</span><div><span><ShieldCheck size={13} /> Non-custodial</span><span><Sparkles size={13} /> Data may be delayed</span><Link href="/terms">Terms & risk</Link><Link href="/privacy">Privacy</Link></div></footer></section>
-    <nav className="mobile-dock" aria-label="Mobile navigation"><Link href="/" className="dock-active"><LayoutGrid size={17} /><span>Markets</span></Link><Link href="/portfolio"><Wallet size={17} /><span>Portfolio</span></Link><Link href="/watchlist"><Sparkles size={17} /><span>Watchlist</span></Link></nav>
+    <MobileDock active="markets" />
   </main>;
 }
