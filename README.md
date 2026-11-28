@@ -2,7 +2,7 @@
 
 solGain is a non-custodial Solana token terminal built with Next.js, TypeScript, and Tailwind. It provides a market screener, token research, wallet portfolio view, local-first watchlist, and a two-step quote/review/sign swap flow.
 
-The screener starts with 50 live Birdeye tokens and can load additional 50-token pages. Its search bar accepts any valid Solana mint address and resolves it through the live overview endpoint; for names and tickers outside the loaded list it uses Birdeye token search. Selecting a result opens the same live-chart, watchlist, and Jupiter swap screen used by screener tokens.
+The screener starts with 50 live Birdeye tokens, shows the top 20, and can load additional 50-token pages. Its search bar accepts any valid Solana mint address and resolves it through the live overview endpoint; for names and tickers outside the loaded list it uses Birdeye token search. Selecting a result opens the same live-chart, watchlist, and Jupiter swap screen used by screener tokens.
 
 ## Local development
 

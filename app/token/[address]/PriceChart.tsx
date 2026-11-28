@@ -22,7 +22,7 @@ function compact(value?: number) {
   return value === undefined || !Number.isFinite(value) ? "Not reported" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 2 }).format(value);
 }
 
-export default function PriceChart({ address, token }: { address: string; token: MarketToken }) {
+export default function PriceChart({ address, token, expandActivity = false }: { address: string; token: MarketToken; expandActivity?: boolean }) {
   const host = useRef<HTMLDivElement>(null);
   const [range, setRange] = useState<Range>("24h");
   const [chartType, setChartType] = useState<ChartType>("area");
@@ -37,6 +37,10 @@ export default function PriceChart({ address, token }: { address: string; token:
   const [metricsOpen, setMetricsOpen] = useState(false);
   const [period, setPeriod] = useState<Period>("24h");
   const [periodPerformance, setPeriodPerformance] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (expandActivity) setInsightOpen(true);
+  }, [expandActivity]);
 
   useEffect(() => {
     if (!host.current) return;

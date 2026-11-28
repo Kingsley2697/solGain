@@ -18,6 +18,8 @@ import { TokenSearchModal } from "./TokenSearchModal";
 
 type TradeSide = "Buy" | "Sell";
 type TradingMode = "instant" | "strategy";
+const detailTabs = ["Overview", "Markets", "Activity", "Info"] as const;
+type DetailTab = (typeof detailTabs)[number];
 type TokenRisk = { score: number; liquidityLocked: boolean; liquidityLockedPct: number; mintAuthorityDisabled: boolean; freezeAuthorityDisabled: boolean; topHolderPct: number; topTenPct: number; decimals?: number; holders: { address: string; amount: number; percentage: number }[] };
 const short = (value: string) => value.slice(0, 5) + "…" + value.slice(-5);
 const money = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 2 }).format(value);
@@ -54,6 +56,9 @@ function TradePanel({ token, risk, riskUnavailable }: { token: MarketToken; risk
   const [signature, setSignature] = useState("");
   const [quotedAt, setQuotedAt] = useState<number | null>(null);
   const [quoteAge, setQuoteAge] = useState(0);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("side") === "sell") setSide("Sell");
+  }, []);
   const clear = () => { setQuote(null); setSimulation(null); setAcknowledledged(false); setSignature(""); setQuotedAt(null); };
   const inputDecimals = side === "Buy" ? 9 : risk?.decimals ?? 6;
   const outputDecimals = side === "Buy" ? risk?.decimals ?? 6 : 9;
@@ -154,7 +159,7 @@ export default function TokenPage() {
   const [solUsd, setSolUsd] = useState<number | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [alertOpen, setAlertOpen] = useState(false);
-  const [detailTab, setDetailTab] = useState("Overview");
+  const [detailTab, setDetailTab] = useState<DetailTab>("Overview");
   const [tradingMode, setTradingMode] = useState<TradingMode>("instant");
   const marketRequestInFlight = useRef(false);
   useEffect(() => { setActiveToken(address); }, [address]);
@@ -200,5 +205,66 @@ export default function TokenPage() {
   const formattedPrice = displayPrice < .01 ? displayPrice.toPrecision(4) : displayPrice.toLocaleString("en-US", { maximumFractionDigits: 6 });
   const copy = async () => { await navigator.clipboard.writeText(token.address); setCopyLabel("Copied"); window.setTimeout(() => setCopyLabel("Copy address"), 1600); };
   const share = async () => { try { await navigator.clipboard.writeText(window.location.href); setShareLabel("Link copied"); } catch { setShareLabel("Copy unavailable"); } window.setTimeout(() => setShareLabel("Share"), 1600); };
-  return <main className="token-page"><header className="token-topbar"><Link href="/" className="brand"><span className="brand-mark"><i /></span><span>SOL<span>GAIN</span></span></Link><nav><Link href="/">Markets</Link><Link href="/portfolio">Portfolio</Link><Link href="/watchlist">Watchlist</Link></nav><div className="token-utilities"><button onClick={() => setSearchOpen(true)}><Search size={14} /> Search</button><WatchlistButton address={token.address} /><button onClick={() => void share()} title={shareLabel}><Share2 size={14} /><span>{shareLabel}</span></button><button className="currency-toggle" onClick={() => setQuoteCurrency(value => value === "USD" ? "SOL" : "USD")}>{quoteCurrency}</button></div><Link className="back-markets" href="/"><ArrowLeft size={14} /> Markets</Link></header><nav className="token-subnav" aria-label="Token detail navigation">{["Overview", "Markets", "Activity", "Info"].map(item => <button key={item} className={detailTab === item ? "active" : ""} onClick={() => setDetailTab(item)}>{item}</button>)}</nav><div className="token-layout"><div className="token-content"><div className="token-crumb"><Link href="/">Markets</Link><span>/</span><strong>{token.symbol}</strong></div><section className="token-hero"><div className="hero-identity"><span className="token-mark hero-mark" style={{ "--token-color": token.color } as React.CSSProperties}>{token.symbol.slice(0, 2)}</span><div><div className="hero-name"><h1>{token.name}</h1><span>{token.symbol}</span><b className="token-category">{token.verified ? "VERIFIED" : "SOLANA TOKEN"}</b></div><div className="hero-address"><span>{short(token.address)}</span><button onClick={copy} aria-label={copyLabel}><Copy size={12} /></button><a href={"https://solscan.io/token/" + token.address} target="_blank" rel="noreferrer"><ExternalLink size={12} /></a></div></div></div><div className="hero-price"><strong>{quoteCurrency === "USD" ? "$" : "◎"}{formattedPrice}</strong><span className={up ? "positive" : "negative"}>{up ? "+" : ""}{token.change.toFixed(2)}% <small>{token.changeWindow.toUpperCase()}</small></span><small className="pair-conversion">{solUsd ? (quoteCurrency === "USD" ? `◎ ${(token.price / solUsd).toPrecision(4)}` : `$${token.price.toPrecision(4)}`) : "Loading SOL pair…"}</small></div><button className="hero-alert-button" onClick={() => setAlertOpen(true)}><Bell size={16} /><span>Price alert</span></button><div className="hero-metrics"><div><span>MARKET CAP</span><strong>{money(token.marketCap)}</strong></div><div><span>LIQUIDITY</span><strong>{token.liquidity === undefined ? "Not reported" : money(token.liquidity)}</strong></div><div><span>HOLDERS</span><strong>{token.holders?.toLocaleString() ?? "Not reported"}</strong></div></div></section><PriceChart address={token.address} token={token} /></div><aside className="token-sidebar"><section className="trade-mode-picker"><div className="panel-title"><strong>Choose trading mode</strong><span>{tradingMode === "instant" ? "WALLET-HELD" : "MANAGED VAULT"}</span></div><div><button className={tradingMode === "instant" ? "selected" : ""} onClick={() => setTradingMode("instant")}><strong>Instant swap</strong><small>Sign now. Funds stay in your wallet until execution.</small></button><button className={tradingMode === "strategy" ? "selected" : ""} onClick={() => setTradingMode("strategy")}><strong>Target / DCA</strong><small>Automate later with a limited Jupiter-managed deposit.</small></button></div></section>{tradingMode === "instant" ? <TradePanel token={token} risk={risk} riskUnavailable={riskUnavailable} /> : <TriggerStrategy token={token} decimals={risk?.decimals} />}<TokenAlerts token={token} /><SafetyPanel risk={risk} unavailable={riskUnavailable} /><div className="sidebar-link"><span>Trade at your own risk</span><a href={"https://birdeye.so/token/" + token.address + "?chain=solana"} target="_blank" rel="noreferrer">View on Birdeye <ArrowLeft size={12} /></a></div></aside></div>{searchOpen && <TokenSearchModal onClose={() => setSearchOpen(false)} />}{alertOpen && <div className="token-modal-backdrop" role="presentation" onMouseDown={() => setAlertOpen(false)}><section className="token-modal alert-modal" role="dialog" aria-modal="true" aria-label={`Price alert for ${token.symbol}`} onMouseDown={event => event.stopPropagation()}><button className="modal-close" onClick={() => setAlertOpen(false)} aria-label="Close price alert">×</button><TokenAlerts token={token} /></section></div>}<MobileDock active="chart" activeToken={token.address} /></main>;
+  const selectDetailTab = (tab: DetailTab) => {
+    setDetailTab(tab);
+    document.getElementById(tab.toLowerCase())?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  return (
+    <main className="token-page">
+      <header className="token-topbar">
+        <Link href="/" className="brand"><span className="brand-mark"><i /></span><span>SOL<span>GAIN</span></span></Link>
+        <nav><Link href="/">Markets</Link><Link href="/portfolio">Portfolio</Link><Link href="/watchlist">Watchlist</Link></nav>
+        <div className="token-utilities">
+          <button onClick={() => setSearchOpen(true)}><Search size={14} /> Search</button>
+          <WatchlistButton address={token.address} />
+          <button onClick={() => void share()} title={shareLabel}><Share2 size={14} /><span>{shareLabel}</span></button>
+          <button className="currency-toggle" onClick={() => setQuoteCurrency(value => value === "USD" ? "SOL" : "USD")}>{quoteCurrency}</button>
+        </div>
+        <Link className="back-markets" href="/"><ArrowLeft size={14} /> Markets</Link>
+      </header>
+      <nav className="token-subnav" aria-label="Token detail navigation">
+        {detailTabs.map(item => (
+          <button key={item} className={detailTab === item ? "active" : ""} aria-pressed={detailTab === item} onClick={() => selectDetailTab(item)}>{item}</button>
+        ))}
+      </nav>
+      <div className="token-layout">
+        <div className="token-content">
+          <div className="token-crumb"><Link href="/">Markets</Link><span>/</span><strong>{token.symbol}</strong></div>
+          <section className="token-hero" id="overview">
+            <div className="hero-identity">
+              <span className="token-mark hero-mark" style={{ "--token-color": token.color } as React.CSSProperties}>{token.symbol.slice(0, 2)}</span>
+              <div>
+                <div className="hero-name"><h1>{token.name}</h1><span>{token.symbol}</span><b className="token-category">{token.verified ? "VERIFIED" : "SOLANA TOKEN"}</b></div>
+                <div className="hero-address"><span>{short(token.address)}</span><button onClick={copy} aria-label={copyLabel}><Copy size={12} /></button><a href={"https://solscan.io/token/" + token.address} target="_blank" rel="noreferrer"><ExternalLink size={12} /></a></div>
+              </div>
+            </div>
+            <div className="hero-price">
+              <strong>{quoteCurrency === "USD" ? "$" : "◎"}{formattedPrice}</strong>
+              <span className={up ? "positive" : "negative"}>{up ? "+" : ""}{token.change.toFixed(2)}% <small>{token.changeWindow.toUpperCase()}</small></span>
+              <small className="pair-conversion">{solUsd ? (quoteCurrency === "USD" ? `◎ ${(token.price / solUsd).toPrecision(4)}` : `$${token.price.toPrecision(4)}`) : "Loading SOL pair…"}</small>
+            </div>
+            <button className="hero-alert-button" onClick={() => setAlertOpen(true)}><Bell size={16} /><span>Price alert</span></button>
+            <div className="hero-metrics"><div><span>MARKET CAP</span><strong>{money(token.marketCap)}</strong></div><div><span>LIQUIDITY</span><strong>{token.liquidity === undefined ? "Not reported" : money(token.liquidity)}</strong></div><div><span>HOLDERS</span><strong>{token.holders?.toLocaleString() ?? "Not reported"}</strong></div></div>
+          </section>
+          <div id="markets"><span id="activity" /><PriceChart address={token.address} token={token} expandActivity={detailTab === "Activity"} /></div>
+        </div>
+        <aside className="token-sidebar">
+          <section className="trade-mode-picker">
+            <div className="panel-title"><strong>Choose trading mode</strong><span>{tradingMode === "instant" ? "WALLET-HELD" : "MANAGED VAULT"}</span></div>
+            <div>
+              <button className={tradingMode === "instant" ? "selected" : ""} onClick={() => setTradingMode("instant")}><strong>Instant swap</strong><small>Sign now. Funds stay in your wallet until execution.</small></button>
+              <button className={tradingMode === "strategy" ? "selected" : ""} onClick={() => setTradingMode("strategy")}><strong>Target / DCA</strong><small>Automate later with a limited Jupiter-managed deposit.</small></button>
+            </div>
+          </section>
+          {tradingMode === "instant" ? <TradePanel token={token} risk={risk} riskUnavailable={riskUnavailable} /> : <TriggerStrategy token={token} decimals={risk?.decimals} />}
+          <TokenAlerts token={token} />
+          <div id="info"><SafetyPanel risk={risk} unavailable={riskUnavailable} /></div>
+          <div className="sidebar-link"><span>Trade at your own risk</span><a href={"https://birdeye.so/token/" + token.address + "?chain=solana"} target="_blank" rel="noreferrer">View on Birdeye <ArrowLeft size={12} /></a></div>
+        </aside>
+      </div>
+      {searchOpen && <TokenSearchModal onClose={() => setSearchOpen(false)} />}
+      {alertOpen && <div className="token-modal-backdrop" role="presentation" onMouseDown={() => setAlertOpen(false)}><section className="token-modal alert-modal" role="dialog" aria-modal="true" aria-label={`Price alert for ${token.symbol}`} onMouseDown={event => event.stopPropagation()}><button className="modal-close" onClick={() => setAlertOpen(false)} aria-label="Close price alert">×</button><TokenAlerts token={token} /></section></div>}
+      <MobileDock active="chart" activeToken={token.address} />
+    </main>
+  );
 }

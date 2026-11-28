@@ -44,7 +44,7 @@ function MobileTokenRow({ token, index, pinned }: { token: MarketToken; index: n
 
 function SearchResults({ results, loading, error, onSelect }: { results: BirdeyeSearchToken[]; loading: boolean; error: string; onSelect: (token: BirdeyeSearchToken) => void }) {
   if (!loading && !error && !results.length) return null;
-  return <div className="search-results" role="status" aria-live="polite">{loading ? <span className="search-result-status">Searching market data…</span> : error ? <span className="search-result-status">{error}</span> : results.length ? results.map(token => <button key={token.address} type="button" className="search-result" onMouseEnter={() => void prefetchBirdeyeToken(token.address)} onFocus={() => void prefetchBirdeyeToken(token.address)} onClick={() => onSelect(token)}><span className="token-mark" style={{ "--token-color": "#86a9d8" } as React.CSSProperties}>{token.symbol.slice(0, 2)}</span><span><strong>{token.name}</strong><small>{token.symbol} · {token.address.slice(0, 5)}…{token.address.slice(-5)}</small></span><em>Add to table</em></button>) : <span className="search-result-status">No Solana tokens found.</span>}</div>;
+  return <div className="search-results" role="status" aria-live="polite">{loading ? <span className="search-result-status">Searching market data…</span> : error ? <span className="search-result-status">{error}</span> : results.length ? results.map(token => <button key={token.address} type="button" className="search-result" onMouseEnter={() => void prefetchBirdeyeToken(token.address)} onFocus={() => void prefetchBirdeyeToken(token.address)} onClick={() => onSelect(token)}><span className="token-mark" style={{ "--token-color": "#86a9d8" } as React.CSSProperties}>{token.symbol.slice(0, 2)}</span><span><strong>{token.name}</strong><small>{token.symbol} · {token.address.slice(0, 5)}…{token.address.slice(-5)}</small></span><em>Open token</em></button>) : <span className="search-result-status">No Solana tokens found.</span>}</div>;
 }
 
 function WalletButton() {
@@ -56,7 +56,13 @@ export default function Home() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<MarketTab>("Trending");
   const [tokens, setTokens] = useState<MarketToken[]>([]);
+  const [additionalTokens, setAdditionalTokens] = useState<MarketToken[]>([]);
   const [pinnedTokens, setPinnedTokens] = useState<MarketToken[]>([]);
+  const [visibleCount, setVisibleCount] = useState(tableSize);
+  const [nextOffset, setNextOffset] = useState(marketFeedSize);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [paginationError, setPaginationError] = useState("");
   const [query, setQuery] = useState("");
   const [updated, setUpdated] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(true);
@@ -71,6 +77,7 @@ export default function Home() {
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
   const refreshInFlight = useRef(false);
+  const loadMoreInFlight = useRef(false);
   const holderRefreshInFlight = useRef(false);
   const providerRetryAt = useRef(0);
   const refreshHolders = useCallback(async (addresses: string[]) => {
@@ -138,8 +145,41 @@ export default function Home() {
     return () => { active = false; window.clearTimeout(timer); };
   }, [query]);
 
-  const visible = useMemo(() => {
-    const filtered = tokens.filter(token => {
+  const loadMore = async () => {
+    if (loadMoreInFlight.current || !hasMore || activeTab === "New Launches" || activeTab === "Memecoins") return;
+    loadMoreInFlight.current = true;
+    setLoadingMore(true);
+    setPaginationError("");
+    const offset = nextOffset;
+    try {
+      const page = await fetchBirdeyeTokens({ offset, limit: marketFeedSize });
+      if (!page.length) {
+        setHasMore(false);
+        return;
+      }
+      setAdditionalTokens(current => {
+        const known = new Set([...tokens, ...current].map(token => token.address));
+        return [...current, ...page.filter(token => {
+          if (known.has(token.address)) return false;
+          known.add(token.address);
+          return true;
+        })];
+      });
+      const next = offset + marketFeedSize;
+      setNextOffset(next);
+      setVisibleCount(current => current + marketFeedSize);
+      setHasMore(page.length === marketFeedSize && next <= 5_000);
+    } catch (reason) {
+      setPaginationError(reason instanceof Error ? reason.message : "Could not load more market tokens.");
+    } finally {
+      loadMoreInFlight.current = false;
+      setLoadingMore(false);
+    }
+  };
+
+  const { visible, rankedCount } = useMemo(() => {
+    const allTokens = Array.from(new Map([...tokens, ...additionalTokens].map(token => [token.address, token])).values());
+    const filtered = allTokens.filter(token => {
       const score = scoreMarketToken(token);
       const isNew = token.createdAt !== undefined && token.createdAt <= Date.now() && Date.now() - token.createdAt < 7 * 24 * 60 * 60 * 1000;
       return (token.liquidity ?? 0) >= Number(minimumLiquidity || 0)
@@ -154,10 +194,11 @@ export default function Home() {
       if (activeTab === "New Launches") return (right.createdAt ?? 0) - (left.createdAt ?? 0);
       return right.volume24h - left.volume24h;
     });
-    const pins = pinnedTokens.slice(0, tableSize);
+    const pins = pinnedTokens.slice(0, visibleCount);
     const pinnedAddresses = new Set(pins.map(token => token.address));
-    return [...pins, ...ranked.filter(token => !pinnedAddresses.has(token.address)).slice(0, Math.max(0, tableSize - pins.length))];
-  }, [activeTab, minimumLiquidity, minimumScore, minimumVolume, newPairsOnly, pinnedTokens, tokens, verifiedOnly]);
+    const entries = [...pins, ...ranked.filter(token => !pinnedAddresses.has(token.address))];
+    return { visible: entries.slice(0, visibleCount), rankedCount: entries.length };
+  }, [activeTab, additionalTokens, minimumLiquidity, minimumScore, minimumVolume, newPairsOnly, pinnedTokens, tokens, verifiedOnly, visibleCount]);
   const pinnedAddresses = useMemo(() => new Set(pinnedTokens.map(token => token.address)), [pinnedTokens]);
   const totalVolume = visible.reduce((sum, token) => sum + token.volume24h, 0);
   const largestMover = visible.reduce<MarketToken | null>((best, token) => !best || token.change > best.change ? token : best, null);
@@ -174,10 +215,15 @@ export default function Home() {
     <section className="market-main"><div className="market-heading"><div><div className="eyebrow"><i /> SOLANA ECOSYSTEM <span>/</span> TOKEN SCREENER</div><h1>Market overview</h1><p>Live data from multiple market providers.</p></div><div className="market-tools"><div className="market-search"><form className="search-box" onSubmit={submitSearch}><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search token or address..." aria-label="Search tokens by name, ticker, or address" autoComplete="off" /></form><SearchResults results={searchResults} loading={searching} error={searchError} onSelect={token => { setActiveToken(token.address); router.push(`/token/${token.address}`); }} /></div><button className="filter-button" onClick={() => setFiltersOpen(open => !open)} aria-expanded={filtersOpen}><SlidersHorizontal size={14} /> Filters</button></div></div>
       {filtersOpen && <section className="discovery-filters" aria-label="Token discovery filters"><div><label>Min liquidity (USD)<input type="number" min="0" value={minimumLiquidity} onChange={event => setMinimumLiquidity(event.target.value)} /></label><label>Min 24h volume (USD)<input type="number" min="0" value={minimumVolume} onChange={event => setMinimumVolume(event.target.value)} /></label><label>Min transparent score<input type="number" min="0" max="100" value={minimumScore} onChange={event => setMinimumScore(event.target.value)} /></label></div><div className="discovery-toggles"><label><input type="checkbox" checked={verifiedOnly} onChange={event => setVerifiedOnly(event.target.checked)} /> Verified only</label><label><input type="checkbox" checked={newPairsOnly} onChange={event => setNewPairsOnly(event.target.checked)} /> New pairs (under 7 days)</label><button onClick={() => { setMinimumLiquidity("0"); setMinimumVolume("0"); setMinimumScore("0"); setVerifiedOnly(false); setNewPairsOnly(false); }}>Reset</button></div><p>Transparent score: liquidity (30), 24h activity (25), holder count (20), verification (15), and market cap (10). Authority and holder-concentration filters remain available on each token&apos;s live safety scan.</p></section>}
       <div className="market-strip"><div className="live-label"><i /> {error ? "MARKET UNAVAILABLE" : "LIVE MARKET"}</div><div className="market-stat"><small>TRACKED TOKENS</small><strong>{visible.length}</strong></div><div className="market-stat"><small>24H VOLUME</small><strong>{compact(totalVolume)}</strong><em>TRACKED TOKENS</em></div><div className="market-stat"><small>TOP 24H MOVER</small><strong>{largestMover?.symbol ?? "—"}</strong><em className={largestMover && largestMover.change >= 0 ? "positive" : "negative"}>{largestMover ? `${largestMover.change >= 0 ? "+" : ""}${largestMover.change.toFixed(1)}%` : "—"}</em></div><div className="market-signal"><span><Sparkles size={14} /></span><small>DATA MODE</small><strong>{error ? "Unavailable" : "Live feed"}</strong></div></div>
-      <section className="tokens-section" aria-labelledby="tokens-heading"><div className="section-topline"><div className="tab-list" role="tablist" aria-label="Token rankings">{tabs.map(tab => <button key={tab} role="tab" data-market-tab={tab} aria-selected={activeTab === tab} className={activeTab === tab ? "selected" : ""} onClick={() => { if (tab !== activeTab) { setRefreshing(true); setActiveTab(tab); } }}>{tab === "Trending" && <Flame size={14} />}{tab}</button>)}</div><div className="table-status"><i className={refreshing ? "refreshing" : ""} />{error ? "Market data unavailable" : refreshing ? `Loading ${activeTab}…` : "Market data live"}<span>·</span>{updated ? `Updated ${updated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "Syncing market"}</div></div>
+      <section className="tokens-section" aria-labelledby="tokens-heading">      <div className="section-topline"><div className="tab-list" role="tablist" aria-label="Token rankings">{tabs.map(tab => <button key={tab} role="tab" data-market-tab={tab} aria-selected={activeTab === tab} className={activeTab === tab ? "selected" : ""} onClick={() => { if (tab !== activeTab) { setRefreshing(true); setAdditionalTokens([]); setVisibleCount(tableSize); setNextOffset(marketFeedSize); setHasMore(tab !== "New Launches" && tab !== "Memecoins"); setPaginationError(""); setActiveTab(tab); } }}>{tab === "Trending" && <Flame size={14} />}{tab}</button>)}</div><div className="table-status"><i className={refreshing ? "refreshing" : ""} />{error ? "Market data unavailable" : refreshing ? `Loading ${activeTab}…` : "Market data live"}<span>·</span>{updated ? `Updated ${updated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "Syncing market"}</div></div>
         <div className="token-table" role="table" aria-labelledby="tokens-heading"><div className="table-header" role="row"><span id="tokens-heading" role="columnheader">TOKEN <ChevronDown size={12} /></span><span role="columnheader">PRICE</span><span role="columnheader">24H CHANGE</span><span role="columnheader">24H VOLUME</span><span role="columnheader">MARKET CAP</span><span role="columnheader">LIQUIDITY</span><span role="columnheader">DETAILS</span><span role="columnheader" /></div>{visible.length ? visible.map((token, index) => <TokenRow key={token.address} token={token} index={index} pinned={pinnedAddresses.has(token.address)} />) : <div className="empty-state"><Search size={19} /><strong>{error ? "Live market data unavailable" : "No tokens found"}</strong><span>{error ? "No cached or simulated prices are shown. Check your market-data connection and retry." : "Try another loaded token or paste a token address."}</span></div>}</div>
         <div className="mobile-token-list" role="list">{visible.length ? visible.map((token, index) => <MobileTokenRow key={token.address} token={token} index={index} pinned={pinnedAddresses.has(token.address)} />) : <div className="empty-state"><Search size={19} /><strong>{error ? "Live market data unavailable" : "No tokens found"}</strong><span>{error ? "No cached or simulated prices are shown. Check your market-data connection and retry." : "Try another loaded token or paste a token address."}</span></div>}</div>
-        <div className="table-footer"><span>Showing <strong>{visible.length}</strong> of <strong>{tableSize}</strong> ranked tokens{pinnedTokens.length ? ` · ${pinnedTokens.length} pinned` : ""}</span><span>Search results replace the lowest-ranked unpinned row.</span></div></section>
+        <div className="table-footer">
+          <span>Showing <strong>{visible.length}</strong> of <strong>{rankedCount}</strong> loaded tokens{pinnedTokens.length ? ` · ${pinnedTokens.length} pinned` : ""}</span>
+          {paginationError && <span role="alert">{paginationError}</span>}
+          {hasMore && activeTab !== "New Launches" && activeTab !== "Memecoins" && tokens.length >= marketFeedSize && <button type="button" onClick={() => void loadMore()} disabled={loadingMore || refreshing}>{loadingMore ? "Loading next page…" : "Load next 50-token page"}</button>}
+          <span>Search results open the selected token terminal.</span>
+        </div></section>
       <footer className="page-footer"><span>Live market data from Birdeye, DexScreener, and GeckoTerminal</span><div><span><ShieldCheck size={13} /> Non-custodial</span><span><Sparkles size={13} /> Data may be delayed</span><Link href="/terms">Terms & risk</Link><Link href="/privacy">Privacy</Link></div></footer></section>
     <MobileDock active="markets" />
   </main>;
