@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, JetBrains_Mono, Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
 import { PwaRegistration } from "@/components/pwa-registration";
 import { WalletProvider } from "@/components/wallet-provider";
+import { getSafeSiteUrl } from "@/lib/site-url";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import "./globals.css";
 
@@ -30,7 +31,7 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+  metadataBase: getSafeSiteUrl(),
   title: { default: "SolGain | Solana Token Terminal", template: "%s | SolGain" },
   description: "A non-custodial Solana token screener with portfolio, watchlist, and swap tools.",
   openGraph: { title: "SolGain", description: "Non-custodial Solana token terminal.", type: "website" },

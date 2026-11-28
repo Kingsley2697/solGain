@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PublicKey } from "@solana/web3.js";
 import { exceedsContentLength, isRateLimited, isSameOrigin } from "@/lib/api-security";
 import { createWalletSession, NONCE_COOKIE, readWalletNonce, SESSION_COOKIE, sessionCookieOptions, walletSignInMessage } from "@/lib/wallet-auth";
+import { getSafeOrigin } from "@/lib/site-url";
 
 export const runtime = "nodejs";
 const ed25519SpkiPrefix = Buffer.from("302a300506032b6570032100", "hex");
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
   if (typeof body.address !== "string" || typeof body.message !== "string" || typeof body.signature !== "string") return NextResponse.json({ error: "Incomplete wallet signature." }, { status: 400 });
   const nonce = readWalletNonce(request.cookies.get(NONCE_COOKIE)?.value);
   if (!nonce || nonce.address !== body.address) return NextResponse.json({ error: "Sign-in request expired. Please try again." }, { status: 401 });
-  const expectedMessage = walletSignInMessage(body.address, nonce.nonce, new URL(request.url).origin);
+  const expectedMessage = walletSignInMessage(body.address, nonce.nonce, getSafeOrigin(request.url));
   if (body.message !== expectedMessage) return NextResponse.json({ error: "Invalid sign-in message." }, { status: 401 });
   try {
     if (!verifyWalletSignature(body.address, body.message, body.signature)) return NextResponse.json({ error: "Wallet signature was not valid." }, { status: 401 });

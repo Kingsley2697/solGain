@@ -1,3 +1,5 @@
+import { getSafeHttpUrl } from "@/lib/site-url";
+
 type JsonRecord = Record<string, unknown>;
 
 const dexScreener = "https://api.dexscreener.com/latest/dex";
@@ -112,8 +114,7 @@ export async function dexToken(address: string) {
 
 function safeUrl(value: unknown) {
   const candidate = string(value);
-  if (!candidate) return undefined;
-  try { const url = new URL(candidate); return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : undefined; } catch { return undefined; }
+  return getSafeHttpUrl(candidate)?.toString();
 }
 
 function socialUrl(platform: string, handle: string) {

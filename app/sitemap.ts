@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
+import { getSafeSiteUrl } from "@/lib/site-url";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const siteUrl = getSafeSiteUrl().origin;
   return ["", "/portfolio", "/watchlist", "/terms", "/privacy"].map(path => ({ url: `${siteUrl}${path}`, lastModified: new Date() }));
 }

@@ -1,3 +1,5 @@
+import { getSafeHttpUrl, getSafeOrigin } from "@/lib/site-url";
+
 type RateLimit = { count: number; resetAt: number };
 
 const buckets = new Map<string, RateLimit>();
@@ -12,7 +14,7 @@ export function clientAddress(headers: Headers) {
 
 export function isSameOrigin(request: Request) {
   const origin = request.headers.get("origin");
-  const requestOrigin = new URL(request.url).origin;
+  const requestOrigin = getSafeOrigin(request.url);
   if (origin) return origin === requestOrigin;
 
   // Browsers omit Origin on same-origin GETs; Fetch Metadata and Referer
@@ -21,9 +23,7 @@ export function isSameOrigin(request: Request) {
   if (fetchSite) return fetchSite === "same-origin";
 
   const referer = request.headers.get("referer");
-  if (referer) {
-    try { return new URL(referer).origin === requestOrigin; } catch { return false; }
-  }
+  if (referer) return getSafeHttpUrl(referer)?.origin === requestOrigin;
 
   return process.env.NODE_ENV !== "production";
 }

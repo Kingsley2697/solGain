@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PublicKey } from "@solana/web3.js";
 import { exceedsContentLength, isRateLimited, isSameOrigin } from "@/lib/api-security";
 import { createWalletNonce, nonceCookieOptions, walletSignInMessage } from "@/lib/wallet-auth";
+import { getSafeOrigin } from "@/lib/site-url";
 
 export const runtime = "nodejs";
 
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
   try { new PublicKey(body.address); } catch { return NextResponse.json({ error: "Invalid Solana wallet address." }, { status: 400 }); }
   try {
     const { nonce, cookie } = createWalletNonce(body.address);
-    const message = walletSignInMessage(body.address, nonce, new URL(request.url).origin);
+    const message = walletSignInMessage(body.address, nonce, getSafeOrigin(request.url));
     const response = NextResponse.json({ message });
     response.cookies.set("solgain_wallet_nonce", cookie, nonceCookieOptions);
     return response;
