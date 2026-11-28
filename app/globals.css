@@ -157,6 +157,7 @@ a { color: inherit; text-decoration: none; }
 .table-status i.refreshing { animation: pulse 1s infinite; }
 .table-status span { color: #46454c; }
 .token-table { width: 100%; }
+.mobile-token-list { display: none; }
 .table-header, .token-row { display: grid; grid-template-columns: minmax(205px, 1.7fr) minmax(90px, .7fr) minmax(100px, .8fr) minmax(118px, .95fr) minmax(108px, .9fr) minmax(88px, .7fr) minmax(86px, .65fr) 22px; align-items: center; column-gap: 12px; padding: 0 18px; }
 .table-header { height: 37px; border-bottom: 1px solid #222227; background: #141417; }
 .table-header > span { display: flex; align-items: center; gap: 4px; color: #777780; font-size: 8px; letter-spacing: .5px; font-weight: 600; white-space: nowrap; }
@@ -222,7 +223,25 @@ a { color: inherit; text-decoration: none; }
   .tab-list::-webkit-scrollbar { display: none; }
   .tab-list button { flex: 0 0 auto; padding: 0 8px; font-size: 10px; }
   .table-status { width: 100%; padding: 0 0 10px; font-size: 8px; }
-  .token-table { overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; }
+  .tokens-section { overflow: visible; border: 0; border-radius: 0; background: transparent; }
+  .section-topline { margin: 0 -4px; border-top: 1px solid var(--border); background: var(--surface); }
+  .token-table { display: none; }
+  .mobile-token-list { display: grid; }
+  .mobile-token-row { min-width: 0; min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 4px; border-bottom: 1px solid var(--border); background: transparent; }
+  .mobile-token-row.pinned-token { background: transparent; box-shadow: none; }
+  .mobile-token-identity { min-width: 0; flex: 1 1 auto; display: flex; align-items: center; gap: 10px; }
+  .mobile-token-icon { position: relative; width: 36px; height: 36px; flex: 0 0 36px; }
+  .mobile-token-icon .token-mark { width: 36px; height: 36px; flex-basis: 36px; font-size: 10px; }
+  .mobile-rank { position: absolute; right: -4px; bottom: -3px; min-width: 16px; height: 16px; display: grid; place-items: center; padding: 0 3px; border: 1px solid var(--border); border-radius: 999px; color: #D1D4DC; background: var(--surface-hover); font-family: var(--font-mono), monospace; font-size: 7px; font-variant-numeric: tabular-nums; }
+  .mobile-token-copy { min-width: 0; display: grid; gap: 5px; }
+  .mobile-token-copy > span { min-width: 0; display: flex; align-items: baseline; gap: 6px; }
+  .mobile-token-copy strong { min-width: 0; overflow: hidden; color: var(--foreground); font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+  .mobile-token-copy small { flex: 0 0 auto; color: var(--muted); font-size: 9px; }
+  .mobile-token-copy em { overflow: hidden; color: var(--muted-strong); font-family: var(--font-mono), monospace; font-size: 9px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+  .mobile-token-quote { flex: 0 1 110px; min-width: 0; display: grid; justify-items: end; gap: 5px; font-family: var(--font-mono), monospace; text-align: right; font-variant-numeric: tabular-nums; }
+  .mobile-token-quote strong { max-width: 100%; overflow: hidden; color: var(--foreground); font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+  .mobile-token-quote em { max-width: 100%; overflow: hidden; font-size: 10px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+  .mobile-token-quote small { color: var(--muted); font-size: 8px; }
   .table-header, .token-row { min-width: 686px; grid-template-columns: 134px 56px 62px 96px 96px 82px 74px 24px; column-gap: 6px; padding: 0 10px; }
   .table-header { padding-left: 10px; }
   .token-row { min-height: 60px; padding-left: 10px; }
@@ -235,7 +254,7 @@ a { color: inherit; text-decoration: none; }
   .metric strong { max-width: 100%; font-size: 10px; }
   .metric small { font-size: 8px; }
   .row-open { opacity: 1; }
-  .table-footer { padding: 0 12px; font-size: 9px; }
+  .table-footer { display: none; }
   .page-footer { display: none; }
   .mobile-dock { height: calc(62px + env(safe-area-inset-bottom)); position: fixed; bottom: 0; left: 0; right: 0; display: flex; z-index: 5; justify-content: space-around; align-items: center; border-top: 1px solid #29282f; background: rgba(19, 23, 34, .96); backdrop-filter: blur(14px); padding-bottom: env(safe-area-inset-bottom); }
   .mobile-dock a { min-width: 70px; display: grid; justify-items: center; gap: 4px; color: #777680; font-size: 9px; }
@@ -1591,4 +1610,44 @@ body { background: var(--background); }
 
 .tab-list button[data-market-tab].selected::after {
   background: var(--accent);
+}
+
+/* Keep the Solana wallet modal inside the TradingView terminal palette. */
+.wallet-adapter-modal-wrapper {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .48);
+}
+
+.wallet-adapter-modal-title,
+.wallet-adapter-modal-middle,
+.wallet-adapter-modal-list-more {
+  color: var(--foreground);
+}
+
+.wallet-adapter-modal-list li {
+  margin-bottom: 6px;
+}
+
+.wallet-adapter-button {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--foreground);
+  background: var(--surface-raised);
+  font-family: var(--font-dense), sans-serif;
+}
+
+.wallet-adapter-button:not([disabled]):hover,
+.wallet-adapter-button:not([disabled]):focus-visible {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+}
+
+.wallet-adapter-modal-button-close {
+  background: var(--surface-hover);
+}
+
+.wallet-adapter-modal-overlay {
+  background: rgba(19, 23, 34, .78);
 }

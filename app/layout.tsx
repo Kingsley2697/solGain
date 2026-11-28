@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, JetBrains_Mono, Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
 import { PwaRegistration } from "@/components/pwa-registration";
 import { WalletProvider } from "@/components/wallet-provider";
+import "@solana/wallet-adapter-react-ui/styles.css";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
